@@ -33,6 +33,26 @@
     padding:12px; margin-bottom:10px;
   }
   .project-item{ cursor:pointer; }
+  .project-badges{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .badge-cat{
+    font-size:11px; background:#f0e6da; color:#8a6a3a; padding:3px 8px; border-radius:6px;
+  }
+  .badge-tag{
+    font-size:11px; background:var(--done-bg); color:#5c7a3a; padding:3px 8px; border-radius:6px;
+  }
+  .tag-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .tag-pill{
+    font-size:12px; padding:5px 10px; border-radius:14px; border:1px solid var(--border);
+    background:white; color:var(--text-secondary); cursor:pointer;
+  }
+  .tag-pill.selected{ background:var(--accent); color:white; border-color:var(--accent); }
+  .new-tag-row{ display:flex; gap:6px; margin-top:8px; }
+  .new-tag-row input{ flex:1; padding:7px 9px; border:1px solid var(--border); border-radius:7px; font-size:13px; }
+  .new-tag-row button{ padding:7px 10px; font-size:12px; margin:0; }
+  select.form-select{
+    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:7px;
+    font-size:14px; font-family:inherit; background:white; color:var(--text);
+  }
   .row-item{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; }
   .row-item.done{ background:var(--done-bg); }
   .row-item.done .row-desc{ text-decoration:line-through; color:#7a8a63; }
@@ -80,6 +100,7 @@
   <div id="view-list">
     <button id="add-project-btn">+ Новый проект</button>
     <div id="project-form-holder"></div>
+    <input type="text" id="search-input" placeholder="Поиск по тегам или названию..." style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; margin:10px 0; font-family:inherit;">
     <div id="project-list"></div>
   </div>
 
@@ -113,8 +134,12 @@
     const projectFormHolder = document.getElementById('project-form-holder');
     const sectionFormHolder = document.getElementById('section-form-holder');
     const toastEl = document.getElementById('toast');
+    const searchInput = document.getElementById('search-input');
 
     let currentProjectId = null;
+    let allCategories = [];
+    let allTags = [];
+    let projectsCache = [];
 
     // ---------- Уведомления об ошибках ----------
     function showToast(message) {
@@ -170,36 +195,251 @@
       return form;
     }
 
+    // ---------- Категории и теги (общие справочники) ----------
+    async function loadCategories() {
+      const { data, error } = await sb.from('categories').select('*').order('name');
+      if (error) { showToast('Ошибка загрузки категорий: ' + error.message); return; }
+      allCategories = data || [];
+    }
+
+    async function loadTags() {
+      const { data, error } = await sb.from('tags').select('*').order('name');
+      if (error) { showToast('Ошибка загрузки тегов: ' + error.message); return; }
+      allTags = data || [];
+    }
+
+    function getCategoryName(id) {
+      const cat = allCategories.find(c => c.id === id);
+      return cat ? cat.name : null;
+    }
+
     // ---------- Список проектов ----------
     async function loadProjects() {
-      const { data, error } = await sb.from('projects').select('*').order('created_at', { ascending: false });
+      const { data, error } = await sb
+        .from('projects')
+        .select('*, project_tags(tags(name))')
+        .order('created_at', { ascending: false });
       if (error) { showToast('Ошибка: ' + error.message); return; }
-      statusEl.textContent = 'Проектов: ' + data.length;
+      projectsCache = data || [];
+      statusEl.textContent = 'Проектов: ' + projectsCache.length;
+      renderProjectList(searchInput.value.trim().toLowerCase());
+    }
+
+    function renderProjectList(filterText) {
       projectListEl.innerHTML = '';
-      data.forEach(p => {
+      const filtered = projectsCache.filter(p => {
+        if (!filterText) return true;
+        const tagNames = (p.project_tags || []).map(pt => pt.tags?.name?.toLowerCase() || '');
+        return p.name.toLowerCase().includes(filterText) || tagNames.some(t => t.includes(filterText));
+      });
+
+      if (!filtered.length) {
+        const empty = document.createElement('p');
+        empty.style.color = 'var(--text-secondary)';
+        empty.style.fontSize = '13px';
+        empty.textContent = filterText ? 'Ничего не найдено' : 'Пока нет проектов';
+        projectListEl.appendChild(empty);
+        return;
+      }
+
+      filtered.forEach(p => {
         const div = document.createElement('div');
         div.className = 'project-item';
-        div.textContent = p.name;
+
+        const name = document.createElement('div');
+        name.textContent = p.name;
+        div.appendChild(name);
+
+        const badges = document.createElement('div');
+        badges.className = 'project-badges';
+
+        const subcatName = getCategoryName(p.subcategory_id);
+        if (subcatName) {
+          const catBadge = document.createElement('span');
+          catBadge.className = 'badge-cat';
+          catBadge.textContent = subcatName;
+          badges.appendChild(catBadge);
+        }
+
+        (p.project_tags || []).forEach(pt => {
+          if (!pt.tags?.name) return;
+          const tagBadge = document.createElement('span');
+          tagBadge.className = 'badge-tag';
+          tagBadge.textContent = pt.tags.name;
+          badges.appendChild(tagBadge);
+        });
+
+        if (badges.children.length) div.appendChild(badges);
+
         div.addEventListener('click', () => openProject(p.id, p.name));
         projectListEl.appendChild(div);
       });
     }
 
+    searchInput.addEventListener('input', () => {
+      renderProjectList(searchInput.value.trim().toLowerCase());
+    });
+
     document.getElementById('add-project-btn').addEventListener('click', () => {
       projectFormHolder.innerHTML = '';
-      const form = buildForm(
-        [{ name: 'name', label: 'Название проекта', placeholder: 'Например: Тыква-брелок' }],
-        async (values, formEl) => {
-          if (!values.name) { showToast('Введите название'); return; }
-          const { error } = await sb.from('projects').insert({ name: values.name });
-          if (error) { showToast('Ошибка: ' + error.message); return; }
-          formEl.remove();
-          loadProjects();
-        },
-        'Создать проект'
-      );
-      projectFormHolder.appendChild(form);
+      projectFormHolder.appendChild(buildProjectForm());
     });
+
+    function buildProjectForm() {
+      const form = document.createElement('div');
+      form.className = 'inline-form';
+
+      // Название
+      const nameLabel = document.createElement('label');
+      nameLabel.textContent = 'Название проекта';
+      form.appendChild(nameLabel);
+      const nameInput = document.createElement('input');
+      nameInput.placeholder = 'Например: Тыква-брелок';
+      form.appendChild(nameInput);
+
+      // Категория
+      const catLabel = document.createElement('label');
+      catLabel.textContent = 'Категория';
+      form.appendChild(catLabel);
+      const catSelect = document.createElement('select');
+      catSelect.className = 'form-select';
+      const catPlaceholder = document.createElement('option');
+      catPlaceholder.textContent = 'Выберите категорию';
+      catPlaceholder.value = '';
+      catSelect.appendChild(catPlaceholder);
+      allCategories.filter(c => !c.parent_id).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        catSelect.appendChild(opt);
+      });
+      form.appendChild(catSelect);
+
+      // Подкатегория
+      const subcatLabel = document.createElement('label');
+      subcatLabel.textContent = 'Подкатегория';
+      form.appendChild(subcatLabel);
+      const subcatSelect = document.createElement('select');
+      subcatSelect.className = 'form-select';
+      subcatSelect.disabled = true;
+      const subcatPlaceholder = document.createElement('option');
+      subcatPlaceholder.textContent = 'Сначала выберите категорию';
+      subcatPlaceholder.value = '';
+      subcatSelect.appendChild(subcatPlaceholder);
+      form.appendChild(subcatSelect);
+
+      catSelect.addEventListener('change', () => {
+        subcatSelect.innerHTML = '';
+        const subcats = allCategories.filter(c => c.parent_id === catSelect.value);
+        if (!catSelect.value || !subcats.length) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = catSelect.value ? 'Нет подкатегорий' : 'Сначала выберите категорию';
+          subcatSelect.appendChild(opt);
+          subcatSelect.disabled = true;
+          return;
+        }
+        subcatSelect.disabled = false;
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Выберите подкатегорию';
+        subcatSelect.appendChild(placeholder);
+        subcats.forEach(sc => {
+          const opt = document.createElement('option');
+          opt.value = sc.id;
+          opt.textContent = sc.name;
+          subcatSelect.appendChild(opt);
+        });
+      });
+
+      // Теги
+      const tagsLabel = document.createElement('label');
+      tagsLabel.textContent = 'Теги (необязательно)';
+      form.appendChild(tagsLabel);
+      const tagPicker = document.createElement('div');
+      tagPicker.className = 'tag-picker';
+      const selectedTagIds = new Set();
+
+      function renderTagPills() {
+        tagPicker.innerHTML = '';
+        allTags.forEach(t => {
+          const pill = document.createElement('span');
+          pill.className = 'tag-pill' + (selectedTagIds.has(t.id) ? ' selected' : '');
+          pill.textContent = t.name;
+          pill.addEventListener('click', () => {
+            if (selectedTagIds.has(t.id)) selectedTagIds.delete(t.id);
+            else selectedTagIds.add(t.id);
+            renderTagPills();
+          });
+          tagPicker.appendChild(pill);
+        });
+      }
+      renderTagPills();
+      form.appendChild(tagPicker);
+
+      const newTagRow = document.createElement('div');
+      newTagRow.className = 'new-tag-row';
+      const newTagInput = document.createElement('input');
+      newTagInput.placeholder = 'Новый тег...';
+      const newTagBtn = document.createElement('button');
+      newTagBtn.className = 'secondary';
+      newTagBtn.textContent = 'Добавить тег';
+      newTagRow.appendChild(newTagInput);
+      newTagRow.appendChild(newTagBtn);
+      form.appendChild(newTagRow);
+
+      newTagBtn.addEventListener('click', async () => {
+        const tagName = newTagInput.value.trim();
+        if (!tagName) return;
+        const { data, error } = await sb.from('tags').insert({ name: tagName }).select().single();
+        if (error) { showToast('Ошибка: ' + error.message); return; }
+        allTags.push(data);
+        selectedTagIds.add(data.id);
+        renderTagPills();
+        newTagInput.value = '';
+      });
+
+      // Кнопки
+      const actions = document.createElement('div');
+      actions.className = 'form-actions';
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Создать проект';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'secondary';
+      cancelBtn.textContent = 'Отмена';
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      form.appendChild(actions);
+
+      cancelBtn.addEventListener('click', () => form.remove());
+
+      saveBtn.addEventListener('click', async () => {
+        const name = nameInput.value.trim();
+        if (!name) { showToast('Введите название'); return; }
+        if (!subcatSelect.value) { showToast('Выберите подкатегорию'); return; }
+
+        saveBtn.disabled = true;
+
+        const { data: newProject, error } = await sb
+          .from('projects')
+          .insert({ name, subcategory_id: subcatSelect.value })
+          .select()
+          .single();
+
+        if (error) { showToast('Ошибка: ' + error.message); saveBtn.disabled = false; return; }
+
+        if (selectedTagIds.size) {
+          const rows = Array.from(selectedTagIds).map(tagId => ({ project_id: newProject.id, tag_id: tagId }));
+          const { error: tagError } = await sb.from('project_tags').insert(rows);
+          if (tagError) showToast('Проект создан, но теги не сохранились: ' + tagError.message);
+        }
+
+        form.remove();
+        loadProjects();
+      });
+
+      return form;
+    }
 
     // ---------- Открытие проекта ----------
     async function openProject(id, name) {
@@ -486,6 +726,8 @@
     // ---------- Старт ----------
     async function init() {
       viewList.style.display = 'block';
+      await loadCategories();
+      await loadTags();
       await loadProjects();
     }
     init();
