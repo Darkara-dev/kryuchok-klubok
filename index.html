@@ -7,78 +7,365 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  body {
-    font-family: -apple-system, sans-serif;
-    background: var(--tg-theme-bg-color, #ffffff);
-    color: var(--tg-theme-text-color, #000000);
-    padding: 20px;
+  :root{
+    --bg:#faf7f2; --card:#ffffff; --border:#e5ded2;
+    --text:#3a332a; --text-secondary:#8a7f6c; --accent:#c95a3a; --done-bg:#eef4e6;
   }
-  h1 { font-size: 20px; }
-  button {
-    background: #c95a3a;
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: 15px;
-    margin: 10px 0;
+  *{box-sizing:border-box;}
+  body{
+    font-family:-apple-system,sans-serif;
+    background:var(--tg-theme-bg-color, var(--bg));
+    color:var(--tg-theme-text-color, var(--text));
+    padding:16px; margin:0; padding-bottom:60px;
   }
-  #project-list { margin-top: 20px; }
-  .project-item {
-    padding: 10px;
-    border: 1px solid #e5ded2;
-    border-radius: 8px;
-    margin-bottom: 8px;
+  h1{font-size:20px; margin:0 0 4px;}
+  h2{font-size:17px; margin:0;}
+  #status{color:var(--text-secondary); font-size:13px; margin-bottom:14px;}
+  button{
+    background:var(--accent); color:white; border:none;
+    padding:10px 14px; border-radius:8px; font-size:14px; margin:4px 4px 4px 0;
+    cursor:pointer;
   }
-  #status { color: #8a7f6c; font-size: 13px; }
+  button.secondary{ background:var(--card); color:var(--text); border:1px solid var(--border); }
+  .back-btn{ background:none; color:var(--accent); padding:4px 0; font-size:14px; }
+  .project-item, .section-block, .row-item{
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    padding:12px; margin-bottom:10px;
+  }
+  .project-item{ cursor:pointer; }
+  .row-item{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; }
+  .row-item.done{ background:var(--done-bg); }
+  .row-item.done .row-desc{ text-decoration:line-through; color:#7a8a63; }
+  .row-num{ font-weight:600; color:var(--text-secondary); min-width:22px; }
+  .row-desc{ flex:1; font-size:14px; }
+  .row-note{ font-size:12px; color:var(--text-secondary); margin-top:2px; }
+  .sec-meta{ font-size:12px; color:var(--text-secondary); margin:2px 0 8px; }
+  #view-project, #view-list{ display:none; }
+
+  .inline-form{
+    background:#fbf9f5; border:1px solid var(--border); border-radius:10px;
+    padding:12px; margin:8px 0 14px;
+  }
+  .inline-form label{ display:block; font-size:12px; color:var(--text-secondary); margin:8px 0 3px; }
+  .inline-form label:first-child{ margin-top:0; }
+  .inline-form input, .inline-form textarea{
+    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:7px;
+    font-size:14px; font-family:inherit; background:white; color:var(--text);
+  }
+  .inline-form textarea{ resize:vertical; min-height:44px; }
+  .form-actions{ margin-top:12px; }
+
+  #toast{
+    position:fixed; left:16px; right:16px; bottom:16px;
+    background:#8a3f27; color:white; padding:10px 14px; border-radius:8px;
+    font-size:13px; display:none; z-index:10;
+  }
 </style>
 </head>
 <body>
   <h1>🧶 Крючок и клубок</h1>
   <p id="status">Подключаемся к базе...</p>
 
-  <button id="add-btn">+ Тестовый проект</button>
+  <div id="view-list">
+    <button id="add-project-btn">+ Новый проект</button>
+    <div id="project-form-holder"></div>
+    <div id="project-list"></div>
+  </div>
 
-  <div id="project-list"></div>
+  <div id="view-project">
+    <button class="back-btn" id="back-btn">← Все проекты</button>
+    <h2 id="project-title"></h2>
+    <button id="add-section-btn">+ Добавить деталь</button>
+    <div id="section-form-holder"></div>
+    <div id="section-list"></div>
+  </div>
+
+  <div id="toast"></div>
 
   <script>
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
 
-    // --- Подключение к Supabase ---
     const SUPABASE_URL = 'https://vcsgpauejnqznygdqxyo.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_MRJ8BbTV9cvAnygOzySE7A_k29SDSuD';
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const statusEl = document.getElementById('status');
-    const listEl = document.getElementById('project-list');
+    const viewList = document.getElementById('view-list');
+    const viewProject = document.getElementById('view-project');
+    const projectListEl = document.getElementById('project-list');
+    const sectionListEl = document.getElementById('section-list');
+    const projectTitleEl = document.getElementById('project-title');
+    const projectFormHolder = document.getElementById('project-form-holder');
+    const sectionFormHolder = document.getElementById('section-form-holder');
+    const toastEl = document.getElementById('toast');
 
+    let currentProjectId = null;
+
+    // ---------- Уведомления об ошибках ----------
+    function showToast(message) {
+      toastEl.textContent = message;
+      toastEl.style.display = 'block';
+      setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
+    }
+
+    // ---------- Помощник: создать инлайн-форму ----------
+    function buildForm(fields, onSubmit, submitLabel) {
+      const form = document.createElement('div');
+      form.className = 'inline-form';
+
+      const inputs = {};
+      fields.forEach(f => {
+        const label = document.createElement('label');
+        label.textContent = f.label;
+        form.appendChild(label);
+
+        const input = f.type === 'textarea'
+          ? document.createElement('textarea')
+          : document.createElement('input');
+        if (f.type !== 'textarea') input.type = f.type || 'text';
+        if (f.placeholder) input.placeholder = f.placeholder;
+        form.appendChild(input);
+        inputs[f.name] = input;
+      });
+
+      const actions = document.createElement('div');
+      actions.className = 'form-actions';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = submitLabel || 'Сохранить';
+      actions.appendChild(saveBtn);
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'secondary';
+      cancelBtn.textContent = 'Отмена';
+      actions.appendChild(cancelBtn);
+
+      form.appendChild(actions);
+
+      cancelBtn.addEventListener('click', () => form.remove());
+      saveBtn.addEventListener('click', async () => {
+        const values = {};
+        fields.forEach(f => { values[f.name] = inputs[f.name].value.trim(); });
+        saveBtn.disabled = true;
+        await onSubmit(values, form);
+        saveBtn.disabled = false;
+      });
+
+      return form;
+    }
+
+    // ---------- Список проектов ----------
     async function loadProjects() {
       const { data, error } = await sb.from('projects').select('*').order('created_at', { ascending: false });
-      if (error) {
-        statusEl.textContent = 'Ошибка: ' + error.message;
-        return;
-      }
-      statusEl.textContent = 'Подключено! Проектов: ' + data.length;
-      listEl.innerHTML = '';
+      if (error) { showToast('Ошибка: ' + error.message); return; }
+      statusEl.textContent = 'Проектов: ' + data.length;
+      projectListEl.innerHTML = '';
       data.forEach(p => {
         const div = document.createElement('div');
         div.className = 'project-item';
         div.textContent = p.name;
-        listEl.appendChild(div);
+        div.addEventListener('click', () => openProject(p.id, p.name));
+        projectListEl.appendChild(div);
       });
     }
 
-    document.getElementById('add-btn').addEventListener('click', async () => {
-      const { error } = await sb.from('projects').insert({ name: 'Тестовый проект ' + new Date().toLocaleTimeString() });
-      if (error) {
-        alert('Ошибка: ' + error.message);
-      } else {
-        loadProjects();
-      }
+    document.getElementById('add-project-btn').addEventListener('click', () => {
+      projectFormHolder.innerHTML = '';
+      const form = buildForm(
+        [{ name: 'name', label: 'Название проекта', placeholder: 'Например: Тыква-брелок' }],
+        async (values, formEl) => {
+          if (!values.name) { showToast('Введите название'); return; }
+          const { error } = await sb.from('projects').insert({ name: values.name });
+          if (error) { showToast('Ошибка: ' + error.message); return; }
+          formEl.remove();
+          loadProjects();
+        },
+        'Создать проект'
+      );
+      projectFormHolder.appendChild(form);
     });
 
-    loadProjects();
+    // ---------- Открытие проекта ----------
+    async function openProject(id, name) {
+      currentProjectId = id;
+      projectTitleEl.textContent = name;
+      viewList.style.display = 'none';
+      viewProject.style.display = 'block';
+      sectionFormHolder.innerHTML = '';
+      await loadSections();
+    }
+
+    document.getElementById('back-btn').addEventListener('click', () => {
+      currentProjectId = null;
+      viewProject.style.display = 'none';
+      viewList.style.display = 'block';
+      loadProjects();
+    });
+
+    // ---------- Детали (sections) ----------
+    async function loadSections() {
+      const { data: sections, error } = await sb
+        .from('sections')
+        .select('*')
+        .eq('project_id', currentProjectId)
+        .order('position', { ascending: true });
+      if (error) { showToast('Ошибка: ' + error.message); return; }
+
+      sectionListEl.innerHTML = '';
+      for (const sec of sections) {
+        const block = document.createElement('div');
+        block.className = 'section-block';
+
+        const title = document.createElement('h2');
+        title.textContent = sec.title;
+        block.appendChild(title);
+
+        if (sec.meta) {
+          const meta = document.createElement('div');
+          meta.className = 'sec-meta';
+          meta.textContent = sec.meta;
+          block.appendChild(meta);
+        }
+
+        const rowsWrap = document.createElement('div');
+        block.appendChild(rowsWrap);
+
+        const rowFormHolder = document.createElement('div');
+        block.appendChild(rowFormHolder);
+
+        const addRowBtn = document.createElement('button');
+        addRowBtn.className = 'secondary';
+        addRowBtn.textContent = '+ Добавить ряд';
+        addRowBtn.addEventListener('click', () => {
+          rowFormHolder.innerHTML = '';
+          const form = buildForm(
+            [
+              { name: 'description', label: 'Описание ряда', placeholder: 'Например: ВК, 6 сбн' },
+              { name: 'total', label: 'Итого петель в ряду (необязательно)', type: 'number', placeholder: 'Например: 6' },
+              { name: 'note', label: 'Примечание (необязательно)', type: 'textarea', placeholder: 'Например: вставить глазки' }
+            ],
+            async (values, formEl) => {
+              if (!values.description) { showToast('Введите описание ряда'); return; }
+              await addRow(sec.id, rowsWrap, values);
+              formEl.remove();
+            },
+            'Добавить ряд'
+          );
+          rowFormHolder.appendChild(form);
+        });
+        block.appendChild(addRowBtn);
+
+        sectionListEl.appendChild(block);
+        await loadRows(sec.id, rowsWrap);
+      }
+    }
+
+    document.getElementById('add-section-btn').addEventListener('click', () => {
+      sectionFormHolder.innerHTML = '';
+      const form = buildForm(
+        [
+          { name: 'title', label: 'Название детали', placeholder: 'Например: Голова' },
+          { name: 'meta', label: 'Примечание (необязательно)', placeholder: 'Например: нить А, набивать по ходу' }
+        ],
+        async (values, formEl) => {
+          if (!values.title) { showToast('Введите название детали'); return; }
+
+          const { count } = await sb
+            .from('sections')
+            .select('*', { count: 'exact', head: true })
+            .eq('project_id', currentProjectId);
+
+          const { error } = await sb.from('sections').insert({
+            project_id: currentProjectId,
+            title: values.title,
+            meta: values.meta || null,
+            position: count || 0
+          });
+          if (error) { showToast('Ошибка: ' + error.message); return; }
+          formEl.remove();
+          loadSections();
+        },
+        'Добавить деталь'
+      );
+      sectionFormHolder.appendChild(form);
+    });
+
+    // ---------- Ряды (rows) ----------
+    async function loadRows(sectionId, container) {
+      const { data: rows, error } = await sb
+        .from('rows')
+        .select('*')
+        .eq('section_id', sectionId)
+        .order('position', { ascending: true });
+      if (error) { showToast('Ошибка: ' + error.message); return; }
+
+      container.innerHTML = '';
+      rows.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'row-item' + (r.checked ? ' done' : '');
+
+        const num = document.createElement('div');
+        num.className = 'row-num';
+        num.textContent = r.row_number + '.';
+
+        const textWrap = document.createElement('div');
+        textWrap.style.flex = '1';
+
+        const desc = document.createElement('div');
+        desc.className = 'row-desc';
+        desc.textContent = r.description + (r.total_stitches ? ' (' + r.total_stitches + ')' : '');
+        textWrap.appendChild(desc);
+
+        if (r.note) {
+          const note = document.createElement('div');
+          note.className = 'row-note';
+          note.textContent = r.note;
+          textWrap.appendChild(note);
+        }
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = r.checked;
+        checkbox.addEventListener('change', async () => {
+          item.classList.toggle('done', checkbox.checked);
+          const { error } = await sb.from('rows').update({ checked: checkbox.checked }).eq('id', r.id);
+          if (error) showToast('Ошибка сохранения: ' + error.message);
+        });
+
+        item.appendChild(num);
+        item.appendChild(textWrap);
+        item.appendChild(checkbox);
+        container.appendChild(item);
+      });
+    }
+
+    async function addRow(sectionId, container, values) {
+      const { count } = await sb
+        .from('rows')
+        .select('*', { count: 'exact', head: true })
+        .eq('section_id', sectionId);
+
+      const nextNumber = (count || 0) + 1;
+
+      const { error } = await sb.from('rows').insert({
+        section_id: sectionId,
+        row_number: nextNumber,
+        description: values.description,
+        note: values.note || null,
+        total_stitches: values.total ? parseInt(values.total, 10) : null,
+        position: count || 0
+      });
+      if (error) { showToast('Ошибка: ' + error.message); return; }
+      loadRows(sectionId, container);
+    }
+
+    // ---------- Старт ----------
+    async function init() {
+      viewList.style.display = 'block';
+      await loadProjects();
+    }
+    init();
   </script>
 </body>
 </html>
