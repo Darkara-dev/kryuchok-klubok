@@ -1,4 +1,5 @@
 const pdfParse = require('pdf-parse');
+const { PDFDocument, PDFName, PDFRawStream } = require('pdf-lib');
 
 const SYSTEM_PROMPT = `Ты помощник, который разбирает схемы вязания крючком (на английском или русском языке) в структурированный JSON для приложения-чеклиста.
 
@@ -32,6 +33,36 @@ const SYSTEM_PROMPT = `Ты помощник, который разбирает 
   ]
 }`;
 
+// --- Извлекаем первую встроенную JPEG-картинку из PDF (для обложки проекта) ---
+function getFilterStr(filter) {
+  if (!filter) return '';
+  if (filter.constructor && filter.constructor.name === 'PDFName') return filter.toString();
+  if (filter.array && filter.array.length) return filter.array[0].toString();
+  return '';
+}
+
+async function extractFirstJpeg(pdfBytes) {
+  try {
+    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    const indirectObjects = pdfDoc.context.enumerateIndirectObjects();
+    for (const [, obj] of indirectObjects) {
+      if (obj instanceof PDFRawStream) {
+        const dict = obj.dict;
+        const subtype = dict.get(PDFName.of('Subtype'));
+        const filter = dict.get(PDFName.of('Filter'));
+        const isImage = subtype && subtype.toString() === '/Image';
+        const filterStr = getFilterStr(filter);
+        if (isImage && filterStr === '/DCTDecode') {
+          return Buffer.from(obj.contents);
+        }
+      }
+    }
+    return null;
+  } catch (e) {
+    return null; // если PDF повреждён/зашифрован для pdf-lib — просто не даём обложку, не валим весь запрос
+  }
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Метод не поддерживается' });
@@ -62,7 +93,11 @@ module.exports = async (req, res) => {
       });
     }
 
-    // --- 3. Отправляем текст нейронке через OpenRouter ---
+    // --- 3. Пробуем достать картинку-обложку (не блокирует основной разбор при неудаче) ---
+    const coverBuffer = await extractFirstJpeg(buffer);
+    const coverImageBase64 = coverBuffer ? coverBuffer.toString('base64') : null;
+
+    // --- 4. Отправляем текст нейронке через OpenRouter ---
     const orResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -91,7 +126,7 @@ module.exports = async (req, res) => {
     const orData = await orResponse.json();
     const rawContent = orData.choices?.[0]?.message?.content || '';
 
-    // --- 4. Достаём JSON из ответа ---
+    // --- 5. Достаём JSON из ответа ---
     let cleaned = rawContent.trim();
     cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
 
@@ -101,6 +136,8 @@ module.exports = async (req, res) => {
     } catch (e) {
       return res.status(502).json({ error: 'Не удалось разобрать ответ нейронки', raw: rawContent });
     }
+
+    parsed.coverImageBase64 = coverImageBase64;
 
     return res.status(200).json(parsed);
 
