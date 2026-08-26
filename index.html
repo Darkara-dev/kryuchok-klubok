@@ -1879,6 +1879,28 @@
       const file = pdfInput.files[0];
       if (!file) return;
 
+      // Предупреждаем, если в проекте уже есть детали — чтобы случайно не задублировать,
+      // если предыдущая попытка загрузки на самом деле уже успела сохраниться
+      const { count: existingCount } = await sb
+        .from('sections')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', currentProjectId);
+
+      if (existingCount && existingCount > 0) {
+        showConfirmModal({
+          title: 'В проекте уже есть детали',
+          message: 'Сейчас в проекте уже ' + existingCount + ' дет' + (existingCount === 1 ? 'аль' : 'алей') +
+            '. Если ты уже загружала эту схему раньше — не загружай повторно, иначе детали задублируются. Продолжить?',
+          onConfirm: () => processPdfUpload(file)
+        });
+        pdfInput.value = '';
+        return;
+      }
+
+      processPdfUpload(file);
+    });
+
+    async function processPdfUpload(file) {
       pdfLoading.classList.add('active');
       pdfLoadingText.textContent = 'Загружаем файл в хранилище...';
 
@@ -1938,7 +1960,7 @@
         pdfLoading.classList.remove('active');
         pdfInput.value = '';
       }
-    });
+    }
 
     // ---------- Сохранение картинки-обложки, извлечённой из PDF ----------
     async function saveCoverImage(base64) {
