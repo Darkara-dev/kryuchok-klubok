@@ -661,17 +661,75 @@
       form.appendChild(catLabel);
       const catSelect = document.createElement('select');
       catSelect.className = 'form-select';
-      const catPlaceholder = document.createElement('option');
-      catPlaceholder.textContent = 'Выберите категорию';
-      catPlaceholder.value = '';
-      catSelect.appendChild(catPlaceholder);
-      allCategories.filter(c => !c.parent_id).forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.name;
-        catSelect.appendChild(opt);
-      });
       form.appendChild(catSelect);
+
+      function refreshCatOptions(selectedValue) {
+        catSelect.innerHTML = '';
+        const catPlaceholder = document.createElement('option');
+        catPlaceholder.textContent = 'Выберите категорию';
+        catPlaceholder.value = '';
+        catSelect.appendChild(catPlaceholder);
+        allCategories.filter(c => !c.parent_id).forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name;
+          catSelect.appendChild(opt);
+        });
+        const newOpt = document.createElement('option');
+        newOpt.value = '__new_category__';
+        newOpt.textContent = '+ Новая категория...';
+        catSelect.appendChild(newOpt);
+        if (selectedValue) catSelect.value = selectedValue;
+      }
+      refreshCatOptions();
+
+      // Мини-форма создания новой категории
+      const newCatForm = document.createElement('div');
+      newCatForm.className = 'inline-form';
+      newCatForm.style.display = 'none';
+      newCatForm.style.marginTop = '8px';
+      const newCatNameLabel = document.createElement('label');
+      newCatNameLabel.textContent = 'Название новой категории';
+      newCatForm.appendChild(newCatNameLabel);
+      const newCatNameInput = document.createElement('input');
+      newCatNameInput.placeholder = 'Например: Для питомцев';
+      newCatForm.appendChild(newCatNameInput);
+      const newCatIconLabel = document.createElement('label');
+      newCatIconLabel.textContent = 'Иконка-эмодзи (необязательно)';
+      newCatForm.appendChild(newCatIconLabel);
+      const newCatIconInput = document.createElement('input');
+      newCatIconInput.placeholder = '🐾';
+      newCatForm.appendChild(newCatIconInput);
+      const newCatActions = document.createElement('div');
+      newCatActions.className = 'form-actions';
+      const newCatSaveBtn = document.createElement('button');
+      newCatSaveBtn.textContent = 'Создать категорию';
+      const newCatCancelBtn = document.createElement('button');
+      newCatCancelBtn.className = 'secondary';
+      newCatCancelBtn.textContent = 'Отмена';
+      newCatActions.appendChild(newCatSaveBtn);
+      newCatActions.appendChild(newCatCancelBtn);
+      newCatForm.appendChild(newCatActions);
+      form.appendChild(newCatForm);
+
+      newCatCancelBtn.addEventListener('click', () => {
+        newCatForm.style.display = 'none';
+        refreshCatOptions('');
+      });
+
+      newCatSaveBtn.addEventListener('click', async () => {
+        const catName = newCatNameInput.value.trim();
+        if (!catName) { showToast('Введите название категории'); return; }
+        const icon = newCatIconInput.value.trim() || null;
+        const { data, error } = await sb.from('categories').insert({ name: catName, icon }).select().single();
+        if (error) { showToast('Ошибка: ' + error.message); return; }
+        allCategories.push(data);
+        newCatForm.style.display = 'none';
+        newCatNameInput.value = '';
+        newCatIconInput.value = '';
+        refreshCatOptions(data.id);
+        catSelect.dispatchEvent(new Event('change'));
+      });
 
       // Подкатегория
       const subcatWrap = document.createElement('div');
@@ -688,12 +746,75 @@
       subcatWrap.appendChild(subcatSelect);
       form.appendChild(subcatWrap);
 
+      // Мини-форма создания новой подкатегории
+      const newSubcatForm = document.createElement('div');
+      newSubcatForm.className = 'inline-form';
+      newSubcatForm.style.display = 'none';
+      newSubcatForm.style.marginTop = '8px';
+      const newSubcatNameLabel = document.createElement('label');
+      newSubcatNameLabel.textContent = 'Название новой подкатегории';
+      newSubcatForm.appendChild(newSubcatNameLabel);
+      const newSubcatNameInput = document.createElement('input');
+      newSubcatNameInput.placeholder = 'Например: Варежки';
+      newSubcatForm.appendChild(newSubcatNameInput);
+      const newSubcatIconLabel = document.createElement('label');
+      newSubcatIconLabel.textContent = 'Иконка-эмодзи (необязательно)';
+      newSubcatForm.appendChild(newSubcatIconLabel);
+      const newSubcatIconInput = document.createElement('input');
+      newSubcatIconInput.placeholder = '🧤';
+      newSubcatForm.appendChild(newSubcatIconInput);
+      const newSubcatActions = document.createElement('div');
+      newSubcatActions.className = 'form-actions';
+      const newSubcatSaveBtn = document.createElement('button');
+      newSubcatSaveBtn.textContent = 'Создать подкатегорию';
+      const newSubcatCancelBtn = document.createElement('button');
+      newSubcatCancelBtn.className = 'secondary';
+      newSubcatCancelBtn.textContent = 'Отмена';
+      newSubcatActions.appendChild(newSubcatSaveBtn);
+      newSubcatActions.appendChild(newSubcatCancelBtn);
+      newSubcatForm.appendChild(newSubcatActions);
+      form.appendChild(newSubcatForm);
+
+      newSubcatCancelBtn.addEventListener('click', () => {
+        newSubcatForm.style.display = 'none';
+        catSelect.dispatchEvent(new Event('change'));
+      });
+
+      newSubcatSaveBtn.addEventListener('click', async () => {
+        const subcatName = newSubcatNameInput.value.trim();
+        if (!subcatName) { showToast('Введите название подкатегории'); return; }
+        if (!catSelect.value || catSelect.value === '__new_category__') { showToast('Сначала выберите категорию'); return; }
+        const icon = newSubcatIconInput.value.trim() || null;
+        const { data, error } = await sb.from('categories').insert({
+          name: subcatName,
+          icon,
+          parent_id: catSelect.value
+        }).select().single();
+        if (error) { showToast('Ошибка: ' + error.message); return; }
+        allCategories.push(data);
+        newSubcatForm.style.display = 'none';
+        newSubcatNameInput.value = '';
+        newSubcatIconInput.value = '';
+        catSelect.dispatchEvent(new Event('change'));
+        // после перерисовки списка подкатегорий сразу выбираем только что созданную
+        subcatSelect.value = data.id;
+      });
+
       catSelect.addEventListener('change', () => {
+        if (catSelect.value === '__new_category__') {
+          newCatForm.style.display = 'block';
+          subcatWrap.style.display = 'none';
+          newSubcatForm.style.display = 'none';
+          return;
+        }
+        newCatForm.style.display = 'none';
+
         subcatSelect.innerHTML = '';
         const subcats = allCategories.filter(c => c.parent_id === catSelect.value);
 
         if (!catSelect.value) {
           subcatWrap.style.display = '';
+          newSubcatForm.style.display = 'none';
           const opt = document.createElement('option');
           opt.value = '';
           opt.textContent = 'Сначала выберите категорию';
@@ -711,16 +832,7 @@
           subcatSelect.appendChild(opt);
           subcatSelect.value = subcats[0].id;
           subcatWrap.style.display = 'none';
-          return;
-        }
-
-        if (!subcats.length) {
-          subcatWrap.style.display = '';
-          const opt = document.createElement('option');
-          opt.value = '';
-          opt.textContent = 'Нет подкатегорий';
-          subcatSelect.appendChild(opt);
-          subcatSelect.disabled = true;
+          newSubcatForm.style.display = 'none';
           return;
         }
 
@@ -728,7 +840,7 @@
         subcatSelect.disabled = false;
         const placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = 'Выберите подкатегорию';
+        placeholder.textContent = subcats.length ? 'Выберите подкатегорию' : 'Подкатегорий пока нет';
         subcatSelect.appendChild(placeholder);
         subcats.forEach(sc => {
           const opt = document.createElement('option');
@@ -736,12 +848,24 @@
           opt.textContent = sc.name;
           subcatSelect.appendChild(opt);
         });
+        const newSubcatOpt = document.createElement('option');
+        newSubcatOpt.value = '__new_subcategory__';
+        newSubcatOpt.textContent = '+ Новая подкатегория...';
+        subcatSelect.appendChild(newSubcatOpt);
 
         if (isEdit && project.subcategory_id && subcats.some(sc => sc.id === project.subcategory_id)) {
           subcatSelect.value = project.subcategory_id;
         }
         if (!isEdit && opts.presetSubcategoryId && subcats.some(sc => sc.id === opts.presetSubcategoryId)) {
           subcatSelect.value = opts.presetSubcategoryId;
+        }
+      });
+
+      subcatSelect.addEventListener('change', () => {
+        if (subcatSelect.value === '__new_subcategory__') {
+          newSubcatForm.style.display = 'block';
+        } else {
+          newSubcatForm.style.display = 'none';
         }
       });
 
@@ -834,7 +958,13 @@
       saveBtn.addEventListener('click', async () => {
         const name = nameInput.value.trim();
         if (!name) { showToast('Введите название'); return; }
-        if (!subcatSelect.value) { showToast('Выберите подкатегорию'); return; }
+        if (catSelect.value === '__new_category__') { showToast('Сначала создайте категорию (кнопка "Создать категорию")'); return; }
+        if (!subcatSelect.value || subcatSelect.value === '__new_subcategory__') {
+          showToast(subcatSelect.value === '__new_subcategory__'
+            ? 'Сначала создайте подкатегорию (кнопка "Создать подкатегорию")'
+            : 'Выберите подкатегорию');
+          return;
+        }
 
         saveBtn.disabled = true;
 
@@ -909,6 +1039,7 @@
         viewSubcategories.style.display = 'block';
       } else {
         viewCategories.style.display = 'block';
+        renderCategoryGrid();
         renderSearchResults(searchInput.value.trim().toLowerCase());
       }
     }
