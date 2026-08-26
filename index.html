@@ -32,7 +32,22 @@
     background:var(--card); border:1px solid var(--border); border-radius:10px;
     padding:12px; margin-bottom:10px;
   }
-  .project-item{ cursor:pointer; }
+  .project-item{ cursor:pointer; display:flex; align-items:center; gap:12px; }
+  .project-thumb{
+    width:52px; height:52px; border-radius:8px; flex-shrink:0;
+    object-fit:cover; background:#f0e6da;
+  }
+  .project-thumb-icon{
+    width:52px; height:52px; border-radius:8px; flex-shrink:0;
+    background:#f0e6da; display:flex; align-items:center; justify-content:center;
+    font-size:24px;
+  }
+  .project-info{ flex:1; min-width:0; }
+  .photo-gallery{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+  .photo-gallery img{
+    width:72px; height:72px; border-radius:8px; object-fit:cover;
+    border:1px solid var(--border);
+  }
   .project-badges{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
   .badge-cat{
     font-size:11px; background:#f0e6da; color:#8a6a3a; padding:3px 8px; border-radius:6px;
@@ -107,6 +122,9 @@
   <div id="view-project">
     <button class="back-btn" id="back-btn">← Все проекты</button>
     <h2 id="project-title"></h2>
+    <div id="photo-gallery" class="photo-gallery"></div>
+    <button id="upload-photo-btn" class="secondary">📷 Добавить фото готовой работы</button>
+    <input type="file" id="photo-input" accept="image/*" style="display:none;">
     <button id="upload-pdf-btn">📄 Загрузить PDF-схему</button>
     <button id="add-section-btn" class="secondary">Добавить деталь вручную</button>
     <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
@@ -140,6 +158,7 @@
     let allCategories = [];
     let allTags = [];
     let projectsCache = [];
+    let photoMap = {}; // project_id -> url последнего фото (для миниатюры в каталоге)
 
     // ---------- Уведомления об ошибках ----------
     function showToast(message) {
@@ -213,6 +232,22 @@
       return cat ? cat.name : null;
     }
 
+    function getCategoryIcon(subcategoryId) {
+      const subcat = allCategories.find(c => c.id === subcategoryId);
+      if (!subcat) return '🧶';
+      const parent = subcat.parent_id ? allCategories.find(c => c.id === subcat.parent_id) : subcat;
+      return (parent && parent.icon) || '🧶';
+    }
+
+    async function loadPhotoMap() {
+      const { data, error } = await sb.from('photos').select('*').order('created_at', { ascending: false });
+      if (error) { showToast('Ошибка загрузки фото: ' + error.message); return; }
+      photoMap = {};
+      (data || []).forEach(p => {
+        if (!photoMap[p.project_id]) photoMap[p.project_id] = p.url; // первое = самое свежее
+      });
+    }
+
     // ---------- Список проектов ----------
     async function loadProjects() {
       const { data, error } = await sb
@@ -246,9 +281,26 @@
         const div = document.createElement('div');
         div.className = 'project-item';
 
+        const photoUrl = photoMap[p.id];
+        if (photoUrl) {
+          const img = document.createElement('img');
+          img.className = 'project-thumb';
+          img.src = photoUrl;
+          img.alt = p.name;
+          div.appendChild(img);
+        } else {
+          const iconBox = document.createElement('div');
+          iconBox.className = 'project-thumb-icon';
+          iconBox.textContent = getCategoryIcon(p.subcategory_id);
+          div.appendChild(iconBox);
+        }
+
+        const info = document.createElement('div');
+        info.className = 'project-info';
+
         const name = document.createElement('div');
         name.textContent = p.name;
-        div.appendChild(name);
+        info.appendChild(name);
 
         const badges = document.createElement('div');
         badges.className = 'project-badges';
@@ -269,7 +321,8 @@
           badges.appendChild(tagBadge);
         });
 
-        if (badges.children.length) div.appendChild(badges);
+        if (badges.children.length) info.appendChild(badges);
+        div.appendChild(info);
 
         div.addEventListener('click', () => openProject(p.id, p.name));
         projectListEl.appendChild(div);
@@ -476,6 +529,7 @@
       viewList.style.display = 'none';
       viewProject.style.display = 'block';
       sectionFormHolder.innerHTML = '';
+      await loadProjectPhotos();
       await loadSections();
     }
 
@@ -643,6 +697,59 @@
       loadRows(sectionId, container);
     }
 
+    // ---------- Фото готовой работы ----------
+    const photoInput = document.getElementById('photo-input');
+    const photoGalleryEl = document.getElementById('photo-gallery');
+
+    document.getElementById('upload-photo-btn').addEventListener('click', () => {
+      photoInput.click();
+    });
+
+    photoInput.addEventListener('change', async () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+
+      try {
+        const filePath = currentProjectId + '/' + Date.now() + '_' + file.name;
+        const { error: uploadError } = await sb.storage.from('photos').upload(filePath, file);
+        if (uploadError) { showToast('Ошибка загрузки фото: ' + uploadError.message); return; }
+
+        const { data: urlData } = sb.storage.from('photos').getPublicUrl(filePath);
+
+        const { error: insertError } = await sb.from('photos').insert({
+          project_id: currentProjectId,
+          url: urlData.publicUrl
+        });
+        if (insertError) { showToast('Ошибка сохранения фото: ' + insertError.message); return; }
+
+        showToast('Фото добавлено!');
+        await loadProjectPhotos();
+        await loadPhotoMap();
+
+      } catch (err) {
+        showToast('Ошибка: ' + err.message);
+      } finally {
+        photoInput.value = '';
+      }
+    });
+
+    async function loadProjectPhotos() {
+      const { data, error } = await sb
+        .from('photos')
+        .select('*')
+        .eq('project_id', currentProjectId)
+        .order('created_at', { ascending: false });
+      if (error) { showToast('Ошибка загрузки фото: ' + error.message); return; }
+
+      photoGalleryEl.innerHTML = '';
+      (data || []).forEach(ph => {
+        const img = document.createElement('img');
+        img.src = ph.url;
+        img.alt = 'Фото готовой работы';
+        photoGalleryEl.appendChild(img);
+      });
+    }
+
     // ---------- Загрузка и разбор PDF ----------
     const pdfInput = document.getElementById('pdf-input');
     const pdfLoading = document.getElementById('pdf-loading');
@@ -756,6 +863,7 @@
       viewList.style.display = 'block';
       await loadCategories();
       await loadTags();
+      await loadPhotoMap();
       await loadProjects();
     }
     init();
