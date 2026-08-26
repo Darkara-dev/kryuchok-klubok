@@ -316,9 +316,10 @@
       form.appendChild(catSelect);
 
       // Подкатегория
+      const subcatWrap = document.createElement('div');
       const subcatLabel = document.createElement('label');
       subcatLabel.textContent = 'Подкатегория';
-      form.appendChild(subcatLabel);
+      subcatWrap.appendChild(subcatLabel);
       const subcatSelect = document.createElement('select');
       subcatSelect.className = 'form-select';
       subcatSelect.disabled = true;
@@ -326,19 +327,46 @@
       subcatPlaceholder.textContent = 'Сначала выберите категорию';
       subcatPlaceholder.value = '';
       subcatSelect.appendChild(subcatPlaceholder);
-      form.appendChild(subcatSelect);
+      subcatWrap.appendChild(subcatSelect);
+      form.appendChild(subcatWrap);
 
       catSelect.addEventListener('change', () => {
         subcatSelect.innerHTML = '';
         const subcats = allCategories.filter(c => c.parent_id === catSelect.value);
-        if (!catSelect.value || !subcats.length) {
+
+        if (!catSelect.value) {
+          subcatWrap.style.display = '';
           const opt = document.createElement('option');
           opt.value = '';
-          opt.textContent = catSelect.value ? 'Нет подкатегорий' : 'Сначала выберите категорию';
+          opt.textContent = 'Сначала выберите категорию';
           subcatSelect.appendChild(opt);
           subcatSelect.disabled = true;
           return;
         }
+
+        if (subcats.length === 1) {
+          // Единственная подкатегория — выбираем автоматически, шаг не показываем
+          subcatSelect.innerHTML = '';
+          const opt = document.createElement('option');
+          opt.value = subcats[0].id;
+          opt.textContent = subcats[0].name;
+          subcatSelect.appendChild(opt);
+          subcatSelect.value = subcats[0].id;
+          subcatWrap.style.display = 'none';
+          return;
+        }
+
+        if (!subcats.length) {
+          subcatWrap.style.display = '';
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'Нет подкатегорий';
+          subcatSelect.appendChild(opt);
+          subcatSelect.disabled = true;
+          return;
+        }
+
+        subcatWrap.style.display = '';
         subcatSelect.disabled = false;
         const placeholder = document.createElement('option');
         placeholder.value = '';
