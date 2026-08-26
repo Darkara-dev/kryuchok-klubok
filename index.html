@@ -27,7 +27,10 @@
     cursor:pointer;
   }
   button.secondary{ background:var(--card); color:var(--text); border:1px solid var(--border); }
-  .back-btn{ background:none; color:var(--accent); padding:4px 0; font-size:14px; }
+  .back-btn{
+    background:none; color:var(--accent); padding:4px 0; font-size:14px;
+    display:block; margin-top:20px; padding-top:14px; border-top:1px solid var(--border);
+  }
   .project-item, .section-block, .row-item{
     background:var(--card); border:1px solid var(--border); border-radius:10px;
     padding:12px; margin-bottom:10px;
@@ -162,19 +165,19 @@
   </div>
 
   <div id="view-subcategories">
-    <button class="back-btn" id="back-to-categories-btn">← Категории</button>
     <h2 id="category-title"></h2>
     <button id="add-project-category-btn">+ Новый проект</button>
     <div id="project-form-holder-category"></div>
     <div id="subcategory-grid" class="card-grid"></div>
+    <button class="back-btn" id="back-to-categories-btn">← Категории</button>
   </div>
 
   <div id="view-projects">
-    <button class="back-btn" id="back-to-subcategories-btn">← <span id="back-to-subcategories-label"></span></button>
     <h2 id="subcategory-title"></h2>
     <button id="add-project-btn">+ Новый проект</button>
     <div id="project-form-holder"></div>
     <div id="project-list" class="card-grid"></div>
+    <button class="back-btn" id="back-to-subcategories-btn">← <span id="back-to-subcategories-label"></span></button>
   </div>
 
   <div id="view-project">
@@ -872,7 +875,7 @@
 
           form.remove();
           await loadProjects();
-          refreshCurrentListView();
+          await openProject(newProject.id, newProject.name);
         }
       });
 
@@ -889,6 +892,12 @@
       viewProject.style.display = 'none';
     }
 
+    function currentVisibleTopView() {
+      if (viewProjects.style.display === 'block') return viewProjects;
+      if (viewSubcategories.style.display === 'block') return viewSubcategories;
+      return viewCategories;
+    }
+
     async function returnToPreviousView() {
       hideAllTopViews();
       await loadProjects();
@@ -896,6 +905,8 @@
       if (previousViewEl === viewProjects) {
         viewProjects.style.display = 'block';
         renderSubcategoryProjects();
+      } else if (previousViewEl === viewSubcategories) {
+        viewSubcategories.style.display = 'block';
       } else {
         viewCategories.style.display = 'block';
         renderSearchResults(searchInput.value.trim().toLowerCase());
@@ -903,7 +914,7 @@
     }
 
     async function openProject(id, name) {
-      previousViewEl = viewProjects.style.display === 'block' ? viewProjects : viewCategories;
+      previousViewEl = currentVisibleTopView();
       currentProjectId = id;
       projectTitleEl.textContent = name;
       hideAllTopViews();
