@@ -376,7 +376,8 @@
     function getCategoryIcon(subcategoryId) {
       const subcat = allCategories.find(c => c.id === subcategoryId);
       if (!subcat) return '🧶';
-      const parent = subcat.parent_id ? allCategories.find(c => c.id === subcat.parent_id) : subcat;
+      if (subcat.icon) return subcat.icon;
+      const parent = subcat.parent_id ? allCategories.find(c => c.id === subcat.parent_id) : null;
       return (parent && parent.icon) || '🧶';
     }
 
@@ -511,7 +512,7 @@
 
         const icon = document.createElement('div');
         icon.className = 'cat-card-icon';
-        icon.textContent = cat.icon || '🧶';
+        icon.textContent = sc.icon || cat.icon || '🧶';
         card.appendChild(icon);
 
         const name = document.createElement('div');
