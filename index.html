@@ -198,6 +198,16 @@
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
 
+    // ---------- ID пользователя (для личного прогресса по рядам) ----------
+    function getUserId() {
+      try {
+        const tgUser = Telegram.WebApp.initDataUnsafe?.user;
+        if (tgUser && tgUser.id) return String(tgUser.id);
+      } catch (e) {}
+      return 'browser-test'; // резервный ID, если открыто не в Telegram (например для проверки в браузере)
+    }
+    const currentUserId = getUserId();
+
     const SUPABASE_URL = 'https://vcsgpauejnqznygdqxyo.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_MRJ8BbTV9cvAnygOzySE7A_k29SDSuD';
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -377,6 +387,18 @@
       (data || []).forEach(p => {
         if (!photoMap[p.project_id]) photoMap[p.project_id] = p.url; // первое = самое свежее
       });
+    }
+
+    // ---------- Личный прогресс по рядам (свой для каждого пользователя Telegram) ----------
+    async function loadRowProgress(rowIds) {
+      if (!rowIds.length) return new Set();
+      const { data, error } = await sb
+        .from('row_progress')
+        .select('row_id')
+        .eq('telegram_user_id', currentUserId)
+        .in('row_id', rowIds);
+      if (error) { showToast('Ошибка загрузки прогресса: ' + error.message); return new Set(); }
+      return new Set((data || []).map(x => x.row_id));
     }
 
     // ---------- Загрузка всех проектов (кэш для поиска и списков по подкатегориям) ----------
@@ -1043,10 +1065,14 @@
         .order('position', { ascending: true });
       if (error) { showToast('Ошибка: ' + error.message); return; }
 
+      const rowIds = rows.map(r => r.id);
+      const checkedSet = await loadRowProgress(rowIds);
+
       container.innerHTML = '';
       rows.forEach(r => {
+        const isChecked = checkedSet.has(r.id);
         const item = document.createElement('div');
-        item.className = 'row-item' + (r.checked ? ' done' : '');
+        item.className = 'row-item' + (isChecked ? ' done' : '');
 
         const num = document.createElement('div');
         num.className = 'row-num';
@@ -1069,11 +1095,23 @@
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = r.checked;
+        checkbox.checked = isChecked;
         checkbox.addEventListener('change', async () => {
           item.classList.toggle('done', checkbox.checked);
-          const { error } = await sb.from('rows').update({ checked: checkbox.checked }).eq('id', r.id);
-          if (error) showToast('Ошибка сохранения: ' + error.message);
+          if (checkbox.checked) {
+            const { error } = await sb.from('row_progress').upsert({
+              row_id: r.id,
+              telegram_user_id: currentUserId,
+              checked: true
+            });
+            if (error) showToast('Ошибка сохранения: ' + error.message);
+          } else {
+            const { error } = await sb.from('row_progress')
+              .delete()
+              .eq('row_id', r.id)
+              .eq('telegram_user_id', currentUserId);
+            if (error) showToast('Ошибка сохранения: ' + error.message);
+          }
         });
 
         const rowActions = document.createElement('div');
