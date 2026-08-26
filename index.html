@@ -550,42 +550,86 @@
 
     // ---------- Недавние проекты с прогресс-баром (на главном экране) ----------
     async function renderRecentProjects() {
-      if (!projectsCache.length) {
-        recentProjectsBlockEl.style.display = 'none';
+      recentProjectsBlockEl.style.display = 'block';
+      recentProjectsListEl.innerHTML = '';
+
+      // 1. Берём последние по времени отметки ряда этого пользователя
+      const { data: progressRows, error: progError } = await sb
+        .from('row_progress')
+        .select('row_id, updated_at')
+        .eq('telegram_user_id', currentUserId)
+        .order('updated_at', { ascending: false })
+        .limit(150);
+
+      if (progError) { showToast('Ошибка: ' + progError.message); return; }
+
+      if (!progressRows || !progressRows.length) {
+        recentProjectsListEl.appendChild(emptyMessage('Вы ещё не начали ни одного проекта'));
         return;
       }
-      const recent = projectsCache.slice(0, 3);
-      const projectIds = recent.map(p => p.id);
 
-      const { data: sections } = await sb.from('sections').select('id, project_id').in('project_id', projectIds);
-      const sectionIds = (sections || []).map(s => s.id);
-      const sectionToProject = {};
-      (sections || []).forEach(s => { sectionToProject[s.id] = s.project_id; });
+      // 2. Ряд -> деталь -> проект, чтобы понять, какому проекту принадлежит каждая отметка
+      const recentRowIds = progressRows.map(pr => pr.row_id);
+      const { data: rowsData } = await sb.from('rows').select('id, section_id').in('id', recentRowIds);
+      const rowToSection = {};
+      (rowsData || []).forEach(r => { rowToSection[r.id] = r.section_id; });
 
-      let rows = [];
+      const sectionIds = [...new Set(Object.values(rowToSection))];
+      let sectionToProject = {};
       if (sectionIds.length) {
-        const { data } = await sb.from('rows').select('id, section_id').in('section_id', sectionIds);
-        rows = data || [];
+        const { data: sectionsData } = await sb.from('sections').select('id, project_id').in('id', sectionIds);
+        (sectionsData || []).forEach(s => { sectionToProject[s.id] = s.project_id; });
       }
 
-      let checkedRowIds = new Set();
-      if (rows.length) {
-        const rowIds = rows.map(r => r.id);
+      // 3. Идём по отметкам от самой свежей и берём первые 3 РАЗНЫХ проекта
+      const recentProjectIds = [];
+      for (const pr of progressRows) {
+        const secId = rowToSection[pr.row_id];
+        const projId = sectionToProject[secId];
+        if (projId && !recentProjectIds.includes(projId)) {
+          recentProjectIds.push(projId);
+          if (recentProjectIds.length === 3) break;
+        }
+      }
+
+      if (!recentProjectIds.length) {
+        recentProjectsListEl.appendChild(emptyMessage('Вы ещё не начали ни одного проекта'));
+        return;
+      }
+
+      const recent = recentProjectIds
+        .map(id => projectsCache.find(p => p.id === id))
+        .filter(Boolean);
+
+      // 4. Считаем прогресс (done/total) по каждому из этих проектов — уже среди ВСЕХ его рядов
+      const { data: allSections } = await sb.from('sections').select('id, project_id').in('project_id', recentProjectIds);
+      const allSectionIds = (allSections || []).map(s => s.id);
+      const allSectionToProject = {};
+      (allSections || []).forEach(s => { allSectionToProject[s.id] = s.project_id; });
+
+      let allRows = [];
+      if (allSectionIds.length) {
+        const { data } = await sb.from('rows').select('id, section_id').in('section_id', allSectionIds);
+        allRows = data || [];
+      }
+
+      let allCheckedRowIds = new Set();
+      if (allRows.length) {
+        const allRowIds = allRows.map(r => r.id);
         const { data } = await sb.from('row_progress').select('row_id')
-          .eq('telegram_user_id', currentUserId).in('row_id', rowIds);
-        checkedRowIds = new Set((data || []).map(x => x.row_id));
+          .eq('telegram_user_id', currentUserId).in('row_id', allRowIds);
+        allCheckedRowIds = new Set((data || []).map(x => x.row_id));
       }
 
       const totals = {}; // projectId -> {done, total}
-      recent.forEach(p => { totals[p.id] = { done: 0, total: 0 }; });
-      rows.forEach(r => {
-        const projId = sectionToProject[r.section_id];
+      recentProjectIds.forEach(id => { totals[id] = { done: 0, total: 0 }; });
+      allRows.forEach(r => {
+        const projId = allSectionToProject[r.section_id];
         if (!totals[projId]) return;
         totals[projId].total++;
-        if (checkedRowIds.has(r.id)) totals[projId].done++;
+        if (allCheckedRowIds.has(r.id)) totals[projId].done++;
       });
 
-      recentProjectsListEl.innerHTML = '';
       recent.forEach((p, idx) => {
         const colors = getColorForSubcategory(p.subcategory_id);
         const t = totals[p.id];
@@ -1363,23 +1407,38 @@
       if (error) { showToast('Ошибка: ' + error.message); return; }
 
       sectionListEl.innerHTML = '';
+      let sectionIndex = 0;
       for (const sec of sections) {
+        const isFirstSection = sectionIndex === 0;
+        sectionIndex++;
+
         const block = document.createElement('div');
         block.className = 'section-block';
 
         const header = document.createElement('div');
         header.className = 'sec-header';
 
+        const toggleArea = document.createElement('div');
+        toggleArea.style.cssText = 'display:flex; align-items:center; gap:8px; flex:1; min-width:0; cursor:pointer;';
+
         const badge = document.createElement('div');
         badge.className = 'part-badge';
         badge.style.background = 'var(--done-bg)';
         badge.style.color = 'var(--text-secondary)';
         badge.textContent = '…';
-        header.appendChild(badge);
+        toggleArea.appendChild(badge);
 
         const title = document.createElement('h2');
+        title.style.flex = '1';
         title.textContent = sec.title;
-        header.appendChild(title);
+        toggleArea.appendChild(title);
+
+        const chevron = document.createElement('span');
+        chevron.textContent = '⌄';
+        chevron.style.cssText = 'font-size:16px; color:var(--text-secondary); transition:transform .2s; flex-shrink:0;';
+        toggleArea.appendChild(chevron);
+
+        header.appendChild(toggleArea);
 
         const secEditBtn = document.createElement('button');
         secEditBtn.className = 'icon-btn';
@@ -1442,11 +1501,14 @@
           });
         });
 
+        // ---------- Сворачиваемое тело детали (ряды + форма добавления) ----------
+        const partBody = document.createElement('div');
+
         const rowsWrap = document.createElement('div');
-        block.appendChild(rowsWrap);
+        partBody.appendChild(rowsWrap);
 
         const rowFormHolder = document.createElement('div');
-        block.appendChild(rowFormHolder);
+        partBody.appendChild(rowFormHolder);
 
         const addRowBtn = document.createElement('button');
         addRowBtn.className = 'secondary';
@@ -1468,7 +1530,20 @@
           );
           rowFormHolder.appendChild(form);
         });
-        block.appendChild(addRowBtn);
+        partBody.appendChild(addRowBtn);
+
+        block.appendChild(partBody);
+
+        // Свернуть все детали, кроме первой — так экран проекта не превращается в длиннющую простыню
+        if (!isFirstSection) {
+          partBody.style.display = 'none';
+          chevron.style.transform = 'rotate(-90deg)';
+        }
+        toggleArea.addEventListener('click', () => {
+          const collapsed = partBody.style.display === 'none';
+          partBody.style.display = collapsed ? '' : 'none';
+          chevron.style.transform = collapsed ? '' : 'rotate(-90deg)';
+        });
 
         sectionListEl.appendChild(block);
         await loadRows(sec.id, rowsWrap, badge);
@@ -1532,7 +1607,8 @@
       updateBadge();
 
       container.innerHTML = '';
-      rows.forEach(r => {
+      const checkboxRefs = []; // для каскадной отметки — все чекбоксы этой детали по порядку
+      rows.forEach((r, idx) => {
         const isChecked = checkedSet.has(r.id);
         const item = document.createElement('div');
         item.className = 'row-item' + (isChecked ? ' done' : '');
@@ -1559,23 +1635,38 @@
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = isChecked;
+        checkboxRefs.push({ checkbox, item, rowId: r.id });
+
         checkbox.addEventListener('change', async () => {
-          item.classList.toggle('done', checkbox.checked);
           if (checkbox.checked) {
-            checkedSet.add(r.id);
-            const { error } = await sb.from('row_progress').upsert({
-              row_id: r.id,
-              telegram_user_id: currentUserId,
-              checked: true
+            // отмечаем этот ряд и все НЕотмеченные ряды выше него в этой детали
+            const toCheck = checkboxRefs.slice(0, idx + 1).filter(ref => !checkedSet.has(ref.rowId));
+            toCheck.forEach(ref => {
+              checkedSet.add(ref.rowId);
+              ref.checkbox.checked = true;
+              ref.item.classList.add('done');
             });
-            if (error) showToast('Ошибка сохранения: ' + error.message);
+            if (toCheck.length) {
+              const { error } = await sb.from('row_progress').upsert(
+                toCheck.map(ref => ({ row_id: ref.rowId, telegram_user_id: currentUserId, checked: true }))
+              );
+              if (error) showToast('Ошибка сохранения: ' + error.message);
+            }
           } else {
-            checkedSet.delete(r.id);
-            const { error } = await sb.from('row_progress')
-              .delete()
-              .eq('row_id', r.id)
-              .eq('telegram_user_id', currentUserId);
-            if (error) showToast('Ошибка сохранения: ' + error.message);
+            // снимаем этот ряд и все ОТМЕЧЕННЫЕ ряды ниже него в этой детали
+            const toUncheck = checkboxRefs.slice(idx).filter(ref => checkedSet.has(ref.rowId));
+            toUncheck.forEach(ref => {
+              checkedSet.delete(ref.rowId);
+              ref.checkbox.checked = false;
+              ref.item.classList.remove('done');
+            });
+            if (toUncheck.length) {
+              const { error } = await sb.from('row_progress')
+                .delete()
+                .eq('telegram_user_id', currentUserId)
+                .in('row_id', toUncheck.map(ref => ref.rowId));
+              if (error) showToast('Ошибка сохранения: ' + error.message);
+            }
           }
           updateBadge();
         });
