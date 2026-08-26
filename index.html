@@ -1988,14 +1988,25 @@
         if (secError) { showToast('Ошибка сохранения детали: ' + secError.message); continue; }
         sectionPosition++;
 
-        const rowsToInsert = (sec.rows || []).map((r, idx) => ({
-          section_id: newSection.id,
-          row_number: idx + 1,
-          description: r.description,
-          note: r.note || null,
-          total_stitches: r.total || null,
-          position: idx
-        }));
+        // Разворачиваем компактные повторяющиеся ряды (repeat) в отдельные строки базы —
+        // нейронка присылает их "свёрнутыми" (repeat: 4), чтобы не тратить время на
+        // выписывание одинаковых рядов много раз подряд
+        const rowsToInsert = [];
+        let rowNumber = 1;
+        (sec.rows || []).forEach(r => {
+          const times = r.repeat && r.repeat > 1 ? r.repeat : 1;
+          for (let i = 0; i < times; i++) {
+            rowsToInsert.push({
+              section_id: newSection.id,
+              row_number: rowNumber,
+              description: r.description,
+              note: r.note || null,
+              total_stitches: r.total || null,
+              position: rowNumber - 1
+            });
+            rowNumber++;
+          }
+        });
 
         if (rowsToInsert.length) {
           const { error: rowsError } = await sb.from('rows').insert(rowsToInsert);
