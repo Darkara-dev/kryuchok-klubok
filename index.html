@@ -182,10 +182,9 @@
     font-size:13px; color:var(--text-secondary); text-align:center;
   }
   #pdf-loading.active{ display:flex; }
-  .yarn-spinner-svg{
-    width:64px; height:64px; flex-shrink:0;
-    filter:drop-shadow(0 8px 14px rgba(168,83,106,0.4));
-    animation:yarn-spin 2.4s linear infinite;
+  .yarn-spinner-emoji{
+    font-size:48px; line-height:1; display:inline-block; flex-shrink:0;
+    animation:yarn-spin 1.6s linear infinite;
   }
   @keyframes yarn-spin{ to{ transform:rotate(360deg); } }
   #toast{
@@ -243,24 +242,7 @@
     <button id="add-section-btn" class="secondary">Добавить деталь вручную</button>
     <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
     <div id="pdf-loading">
-      <svg class="yarn-spinner-svg" viewBox="0 0 64 64">
-        <defs>
-          <radialGradient id="yarnGrad" cx="36%" cy="32%" r="72%">
-            <stop offset="0%" stop-color="#D391A4"/>
-            <stop offset="55%" stop-color="#A8536A"/>
-            <stop offset="100%" stop-color="#7C3E51"/>
-          </radialGradient>
-          <clipPath id="yarnClip"><circle cx="32" cy="32" r="28"/></clipPath>
-        </defs>
-        <circle cx="32" cy="32" r="28" fill="url(#yarnGrad)"/>
-        <g clip-path="url(#yarnClip)" stroke="rgba(255,255,255,0.4)" stroke-width="1.6" fill="none">
-          <ellipse cx="32" cy="32" rx="28" ry="10" transform="rotate(10 32 32)"/>
-          <ellipse cx="32" cy="32" rx="28" ry="10" transform="rotate(70 32 32)"/>
-          <ellipse cx="32" cy="32" rx="28" ry="10" transform="rotate(130 32 32)"/>
-          <ellipse cx="32" cy="32" rx="10" ry="28" transform="rotate(-15 32 32)"/>
-        </g>
-        <path d="M 56 38 Q 62 44 59 52" stroke="#7C3E51" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-      </svg>
+      <span class="yarn-spinner-emoji">🧶</span>
       <span id="pdf-loading-text">Разбираем схему...</span>
     </div>
     <div id="section-form-holder"></div>
@@ -838,10 +820,15 @@
 
       if (parentCat && siblingSubcats.length > 1) {
         viewSubcategories.style.display = 'block';
+        const colors = getColorForCategoryName(parentCat.name);
+        renderAppHeader(colors.main, (parentCat.icon || '🧶') + ' ' + parentCat.name, 'Выбери раздел', () => {
+          document.getElementById('back-to-categories-btn').click();
+        });
       } else {
         // если у категории была всего 1 подкатегория (мы её пропускали) — возвращаемся сразу к категориям
         currentCategoryId = null;
         viewCategories.style.display = 'block';
+        renderAppHeader('#A8536A', '🧶 Крючок и клубок', null, null);
       }
     });
 
