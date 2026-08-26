@@ -48,7 +48,7 @@
     // --- Подключение к Supabase ---
     const SUPABASE_URL = 'https://vcsgpauejnqznygdqxyo.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_MRJ8BbTV9cvAnygOzySE7A_k29SDSuD';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const statusEl = document.getElementById('status');
     const listEl = document.getElementById('project-list');
