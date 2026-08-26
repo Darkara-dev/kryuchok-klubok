@@ -54,7 +54,7 @@
     const listEl = document.getElementById('project-list');
 
     async function loadProjects() {
-      const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+      const { data, error } = await sb.from('projects').select('*').order('created_at', { ascending: false });
       if (error) {
         statusEl.textContent = 'Ошибка: ' + error.message;
         return;
@@ -70,7 +70,7 @@
     }
 
     document.getElementById('add-btn').addEventListener('click', async () => {
-      const { error } = await supabase.from('projects').insert({ name: 'Тестовый проект ' + new Date().toLocaleTimeString() });
+      const { error } = await sb.from('projects').insert({ name: 'Тестовый проект ' + new Date().toLocaleTimeString() });
       if (error) {
         alert('Ошибка: ' + error.message);
       } else {
