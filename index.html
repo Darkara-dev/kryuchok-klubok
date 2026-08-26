@@ -404,7 +404,7 @@
         const { data: urlData } = sb.storage.from('schemas').getPublicUrl(filePath);
         const pdfUrl = urlData.publicUrl;
 
-        pdfLoadingText.textContent = 'Нейронка разбирает схему (это может занять минуту)...';
+        pdfLoadingText.textContent = 'Разбираем схему (это может занять несколько минут)...';
 
         const resp = await fetch('/api/parse-pdf', {
           method: 'POST',
