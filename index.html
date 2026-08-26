@@ -155,6 +155,8 @@
 
   <div id="view-categories">
     <input type="text" id="search-input" placeholder="Поиск по тегам или названию..." style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; margin:10px 0; font-family:inherit;">
+    <button id="add-project-home-btn">+ Новый проект</button>
+    <div id="project-form-holder-home"></div>
     <div id="search-results" class="card-grid"></div>
     <div id="category-grid" class="card-grid"></div>
   </div>
@@ -162,6 +164,8 @@
   <div id="view-subcategories">
     <button class="back-btn" id="back-to-categories-btn">← Категории</button>
     <h2 id="category-title"></h2>
+    <button id="add-project-category-btn">+ Новый проект</button>
+    <div id="project-form-holder-category"></div>
     <div id="subcategory-grid" class="card-grid"></div>
   </div>
 
@@ -560,6 +564,17 @@
       filtered.forEach(p => projectListEl.appendChild(createProjectItemEl(p)));
     }
 
+    // Обновляет тот список, который сейчас реально виден пользователю
+    // (нужна, т.к. "+ Новый проект" теперь доступна с трёх разных экранов)
+    function refreshCurrentListView() {
+      if (viewProjects.style.display === 'block') {
+        renderSubcategoryProjects();
+      } else if (viewCategories.style.display === 'block') {
+        renderSearchResults(searchInput.value.trim().toLowerCase());
+      }
+      // на экране подкатегорий (view-subcategories) обновлять нечего — там нет списка проектов
+    }
+
     document.getElementById('back-to-subcategories-btn').addEventListener('click', () => {
       currentSubcategoryId = null;
       viewProjects.style.display = 'none';
@@ -605,6 +620,18 @@
     document.getElementById('add-project-btn').addEventListener('click', () => {
       projectFormHolder.innerHTML = '';
       projectFormHolder.appendChild(buildProjectForm({ presetSubcategoryId: currentSubcategoryId }));
+    });
+
+    const projectFormHolderHome = document.getElementById('project-form-holder-home');
+    document.getElementById('add-project-home-btn').addEventListener('click', () => {
+      projectFormHolderHome.innerHTML = '';
+      projectFormHolderHome.appendChild(buildProjectForm());
+    });
+
+    const projectFormHolderCategory = document.getElementById('project-form-holder-category');
+    document.getElementById('add-project-category-btn').addEventListener('click', () => {
+      projectFormHolderCategory.innerHTML = '';
+      projectFormHolderCategory.appendChild(buildProjectForm({ presetCategoryId: currentCategoryId }));
     });
 
     function buildProjectForm(opts) {
@@ -734,6 +761,12 @@
         }
       }
 
+      // Предзаполнение при создании из конкретной категории (без подкатегории)
+      if (!isEdit && !opts.presetSubcategoryId && opts.presetCategoryId) {
+        catSelect.value = opts.presetCategoryId;
+        catSelect.dispatchEvent(new Event('change'));
+      }
+
       // Теги
       const tagsLabel = document.createElement('label');
       tagsLabel.textContent = 'Теги (необязательно)';
@@ -839,7 +872,7 @@
 
           form.remove();
           await loadProjects();
-          renderSubcategoryProjects();
+          refreshCurrentListView();
         }
       });
 
