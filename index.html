@@ -4,79 +4,111 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Крючок и клубок</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --bg:#faf7f2; --card:#ffffff; --border:#e5ded2;
-    --text:#3a332a; --text-secondary:#8a7f6c; --accent:#c95a3a; --done-bg:#eef4e6;
+    /* Тёплая палитра, вдохновлённая мотками пряжи. Не подстраиваемся под тему
+       Telegram (var(--tg-theme-*)) намеренно — у нас свой фирменный вид, и
+       завязка на системную тему раньше приводила к невидимому светлому тексту
+       на светлых карточках при тёмной теме Telegram. */
+    --bg:#F3EDE2; --card:#FFFCF7; --border:#E6DCC9;
+    --text:#3A2E28; --text-secondary:#8C7C6B;
+    --accent:#A8536A; --accent-light:#F3E4E8;
+    --done-bg:#F1EDE2; --done-text:#8A9A6B;
   }
   *{box-sizing:border-box;}
   body{
-    font-family:-apple-system,sans-serif;
-    background:var(--tg-theme-bg-color, var(--bg));
-    color:var(--tg-theme-text-color, var(--text));
-    padding:16px; margin:0; padding-bottom:60px;
+    font-family:'Nunito',-apple-system,sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:0 16px 60px; margin:0;
   }
-  h1{font-size:20px; margin:0 0 4px;}
-  h2{font-size:17px; margin:0;}
-  #status{color:var(--text-secondary); font-size:13px; margin-bottom:14px;}
+  h2{font-size:17px; margin:0; font-family:'Bitter',serif; font-weight:600;}
+  #status{color:var(--text-secondary); font-size:13px; margin:10px 0 4px;}
   button{
     background:var(--accent); color:white; border:none;
-    padding:10px 14px; border-radius:8px; font-size:14px; margin:4px 4px 4px 0;
-    cursor:pointer;
+    padding:11px 16px; border-radius:12px; font-size:14px; margin:4px 4px 4px 0;
+    cursor:pointer; font-family:'Nunito',sans-serif; font-weight:700;
   }
-  button.secondary{ background:var(--card); color:var(--text); border:1px solid var(--border); }
+  button.secondary{ background:var(--card); color:var(--text); border:1.5px solid var(--border); font-weight:600; }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
   .back-btn{
-    background:none; color:var(--accent); padding:4px 0; font-size:14px;
-    display:block; margin-top:20px; padding-top:14px; border-top:1px solid var(--border);
+    background:none; color:var(--accent); padding:4px 0; font-size:14px; font-weight:700;
+    display:block; margin-top:20px; padding-top:14px; border-top:1.5px solid var(--border);
   }
+
+  /* ---------- Шапка с зубчатым краем ---------- */
+  .app-header{ margin:0 -16px 16px; }
+  .app-header-bar{
+    display:flex; align-items:center; gap:10px; padding:16px 18px 18px;
+    color:white;
+  }
+  .app-header-back{
+    width:32px; height:32px; border-radius:50%; flex-shrink:0;
+    background:rgba(255,255,255,0.22); border:none; color:white;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; cursor:pointer; padding:0; margin:0;
+  }
+  .app-header-title{
+    font-family:'Bitter',serif; font-weight:700; font-size:21px;
+    line-height:1.2; color:white;
+  }
+  .app-header-sub{ font-size:12px; color:rgba(255,255,255,0.8); margin-top:2px; }
+  .picot-edge{ display:block; width:100%; margin-top:-1px; }
+
+  /* ---------- Круглые "мотки пряжи" — иконки категорий ---------- */
+  .yarn-circle{
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+
   .project-item, .section-block, .row-item{
-    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    background:var(--card); border:1.5px solid var(--border); border-radius:14px;
     padding:12px; margin-bottom:10px;
   }
   .project-item{ cursor:pointer; display:flex; align-items:center; gap:12px; }
   .project-thumb{
-    width:52px; height:52px; border-radius:8px; flex-shrink:0;
-    object-fit:cover; background:#f0e6da;
-  }
-  .project-thumb-icon{
-    width:52px; height:52px; border-radius:8px; flex-shrink:0;
-    background:#f0e6da; display:flex; align-items:center; justify-content:center;
-    font-size:24px;
+    width:52px; height:52px; border-radius:12px; flex-shrink:0;
+    object-fit:cover; background:var(--done-bg);
   }
   .project-info{ flex:1; min-width:0; }
   .photo-gallery{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
   .photo-gallery img{
-    width:72px; height:72px; border-radius:8px; object-fit:cover;
-    border:1px solid var(--border);
+    width:72px; height:72px; border-radius:12px; object-fit:cover;
+    border:1.5px solid var(--border);
   }
   .project-badges{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; justify-content:center; }
   .badge-cat{
-    font-size:11px; background:#f0e6da; color:#8a6a3a; padding:3px 8px; border-radius:6px;
+    font-size:11px; font-weight:700; background:var(--accent-light); color:var(--accent); padding:3px 9px; border-radius:8px;
   }
   .badge-tag{
-    font-size:11px; background:var(--done-bg); color:#5c7a3a; padding:3px 8px; border-radius:6px;
+    font-size:11px; font-weight:700; background:var(--done-bg); color:var(--done-text); padding:3px 9px; border-radius:8px;
   }
   .tag-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
   .tag-pill{
-    font-size:12px; padding:5px 10px; border-radius:14px; border:1px solid var(--border);
-    background:white; color:var(--text-secondary); cursor:pointer;
+    font-size:12px; font-weight:600; padding:6px 12px; border-radius:16px; border:1.5px solid var(--border);
+    background:var(--card); color:var(--text-secondary); cursor:pointer;
   }
   .tag-pill.selected{ background:var(--accent); color:white; border-color:var(--accent); }
   .new-tag-row{ display:flex; gap:6px; margin-top:8px; }
-  .new-tag-row input{ flex:1; padding:7px 9px; border:1px solid var(--border); border-radius:7px; font-size:13px; }
-  .new-tag-row button{ padding:7px 10px; font-size:12px; margin:0; }
+  .new-tag-row input{ flex:1; padding:8px 10px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; font-family:inherit; }
+  .new-tag-row button{ padding:8px 12px; font-size:12px; margin:0; }
   select.form-select{
-    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:7px;
-    font-size:14px; font-family:inherit; background:white; color:var(--text);
+    width:100%; padding:10px 11px; border:1.5px solid var(--border); border-radius:10px;
+    font-size:14px; font-family:inherit; background:var(--card); color:var(--text);
   }
-  .row-item{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; }
+  .row-item{ display:flex; align-items:flex-start; gap:10px; padding:11px 13px; }
   .row-item.done{ background:var(--done-bg); }
-  .row-item.done .row-desc{ text-decoration:line-through; color:#7a8a63; }
-  .row-num{ font-weight:600; color:var(--text-secondary); min-width:22px; }
-  .row-desc{ flex:1; font-size:14px; }
-  .row-note{ font-size:12px; color:var(--text-secondary); margin-top:2px; }
+  .row-item.done .row-desc{ text-decoration:line-through; color:var(--done-text); }
+  .row-num{
+    font-weight:800; color:var(--accent); min-width:26px; font-size:12px;
+    background:var(--accent-light); border-radius:7px; padding:2px 0; text-align:center; height:fit-content;
+  }
+  .row-desc{ flex:1; font-size:14px; color:var(--text); line-height:1.4; }
+  .row-note{ font-size:12px; color:var(--text-secondary); margin-top:3px; }
   .sec-meta{ font-size:12px; color:var(--text-secondary); margin:2px 0 8px; }
   #view-project, #view-categories, #view-subcategories, #view-projects{ display:none; }
 
@@ -84,29 +116,32 @@
     display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;
   }
   .cat-card{
-    background:var(--card); border:1px solid var(--border); border-radius:14px;
-    padding:20px 12px; display:flex; flex-direction:column; align-items:center;
-    gap:8px; cursor:pointer; text-align:center;
+    background:var(--card); border:1.5px solid var(--border); border-radius:18px;
+    padding:0 0 14px; display:flex; flex-direction:column; align-items:center;
+    gap:0; cursor:pointer; text-align:center; overflow:hidden;
   }
-  .cat-card-icon{ font-size:34px; }
-  .cat-card-name{ font-size:14px; font-weight:500; }
+  .cat-card-icon-area{
+    width:100%; height:96px; display:flex; align-items:center; justify-content:center;
+    margin-bottom:10px;
+  }
+  .cat-card-name{ font-size:14px; font-weight:600; font-family:'Bitter',serif; color:var(--text); padding:0 8px; }
+  .cat-card-meta{ font-size:11px; color:var(--text-secondary); margin-top:3px; }
   .project-card-img{
-    width:100%; aspect-ratio:1; border-radius:10px; object-fit:cover; background:#f0e6da;
+    width:100%; aspect-ratio:1; object-fit:cover; background:var(--done-bg);
   }
 
   .inline-form{
-    background:#fbf9f5; border:1px solid var(--border); border-radius:10px;
-    padding:12px; margin:8px 0 14px;
+    background:#FBF7EF; border:1.5px solid var(--border); border-radius:14px;
+    padding:14px; margin:8px 0 14px;
   }
-  .inline-form label{ display:block; font-size:12px; color:var(--text-secondary); margin:8px 0 3px; }
+  .inline-form label{ display:block; font-size:12px; color:var(--text-secondary); margin:8px 0 3px; font-weight:600; }
   .inline-form label:first-child{ margin-top:0; }
   .inline-form input, .inline-form textarea{
-    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:7px;
-    font-size:14px; font-family:inherit; background:white; color:var(--text);
+    width:100%; padding:10px 11px; border:1.5px solid var(--border); border-radius:10px;
+    font-size:14px; font-family:inherit; background:var(--card); color:var(--text);
   }
   .inline-form textarea{ resize:vertical; min-height:44px; }
   .form-actions{ margin-top:12px; }
-  button:disabled{ opacity:.5; cursor:not-allowed; }
 
   .icon-btn{
     background:none; border:none; padding:4px 6px; font-size:14px;
@@ -116,51 +151,78 @@
   .sec-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .sec-header h2{ flex:1; }
   .project-title-row{ display:flex; align-items:center; gap:8px; }
-  .project-title-row h2{ flex:1; }
+  .project-title-row h2{ flex:1; font-size:13px; color:var(--text-secondary); font-weight:600; }
+
+  /* ---------- Круглый бейдж прогресса детали (в духе крючка со счётчиком) ---------- */
+  .part-badge{
+    width:28px; height:28px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:800; font-family:'Nunito',sans-serif;
+  }
 
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,0.45);
+    position:fixed; inset:0; background:rgba(58,46,40,0.5);
     display:flex; align-items:center; justify-content:center; z-index:100; padding:20px;
   }
   .modal-box{
-    background:white; border-radius:12px; padding:18px; max-width:340px; width:100%;
+    background:var(--card); border-radius:18px; padding:20px; max-width:340px; width:100%;
   }
-  .modal-title{ font-weight:600; font-size:16px; margin-bottom:6px; }
+  .modal-title{ font-weight:700; font-size:16px; margin-bottom:6px; font-family:'Bitter',serif; color:var(--text); }
   .modal-message{ font-size:13.5px; color:var(--text-secondary); margin-bottom:12px; line-height:1.4; }
   .modal-input{
-    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:7px;
+    width:100%; padding:10px 11px; border:1.5px solid var(--border); border-radius:10px;
     font-size:14px; margin-bottom:12px; font-family:inherit;
   }
   .modal-actions{ display:flex; gap:8px; justify-content:flex-end; }
-  .btn-danger{ background:#b0392e; }
+  .btn-danger{ background:#B0392E; }
 
+  /* ---------- Спиннер-клубок ---------- */
   #pdf-loading{
-    display:none; align-items:center; gap:8px; margin:10px 0;
-    font-size:13px; color:var(--text-secondary);
+    display:none; flex-direction:column; align-items:center; gap:14px; margin:20px 0;
+    font-size:13px; color:var(--text-secondary); text-align:center;
   }
   #pdf-loading.active{ display:flex; }
-  .spinner{
-    width:16px; height:16px; border:2px solid var(--border);
-    border-top-color:var(--accent); border-radius:50%;
-    animation:spin 0.8s linear infinite;
+  .yarn-spinner{
+    width:64px; height:64px; border-radius:50%; position:relative; overflow:hidden;
+    background:radial-gradient(circle at 36% 32%, #D391A4, var(--accent) 55%, #7C3E51);
+    box-shadow:0 8px 22px rgba(168,83,106,0.38);
+    animation:yarn-spin 2.4s linear infinite;
+    flex-shrink:0;
   }
-  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .yarn-spinner::before, .yarn-spinner::after{
+    content:''; position:absolute; top:50%; left:50%;
+    width:92%; height:1.5px; background:rgba(255,255,255,0.32);
+    transform-origin:left center;
+  }
+  .yarn-spinner::before{ transform:rotate(20deg) translateY(-50%); }
+  .yarn-spinner::after{ transform:rotate(100deg) translateY(-50%); }
+  .yarn-spinner-line3{
+    position:absolute; top:50%; left:50%; width:92%; height:1.5px;
+    background:rgba(255,255,255,0.32); transform-origin:left center;
+    transform:rotate(160deg) translateY(-50%);
+  }
+  @keyframes yarn-spin{ to{ transform:rotate(360deg); } }
   #toast{
     position:fixed; left:16px; right:16px; bottom:16px;
-    background:#8a3f27; color:white; padding:10px 14px; border-radius:8px;
+    background:#7C3E51; color:white; padding:10px 14px; border-radius:12px;
     font-size:13px; display:none; z-index:10;
   }
 </style>
 </head>
 <body>
-  <h1>🧶 Крючок и клубок</h1>
+  <div class="app-header" id="app-header"></div>
   <p id="status">Подключаемся к базе...</p>
 
   <div id="view-categories">
-    <input type="text" id="search-input" placeholder="Поиск по тегам или названию..." style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; margin:10px 0; font-family:inherit;">
+    <input type="text" id="search-input" placeholder="Поиск по тегам или названию..." style="width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:12px; font-size:14px; margin:10px 0; font-family:inherit; background:var(--card); color:var(--text);">
     <button id="add-project-home-btn">+ Новый проект</button>
     <div id="project-form-holder-home"></div>
     <div id="search-results" class="card-grid"></div>
+    <div id="recent-projects-block" style="display:none; margin-top:22px;">
+      <h2 style="margin-bottom:10px;">Недавние проекты</h2>
+      <div id="recent-projects-list"></div>
+    </div>
+    <h2 style="margin:22px 0 0;" id="category-grid-title">Категории</h2>
     <div id="category-grid" class="card-grid"></div>
   </div>
 
@@ -181,7 +243,7 @@
   </div>
 
   <div id="view-project">
-    <button class="back-btn" id="back-btn">← Проекты</button>
+    <button class="back-btn" id="back-btn" style="margin-top:0; padding-top:0; border-top:none;">← Проекты</button>
     <div class="project-title-row">
       <h2 id="project-title"></h2>
       <button id="edit-project-btn" class="icon-btn" title="Редактировать проект">✎</button>
@@ -194,7 +256,10 @@
     <button id="upload-pdf-btn">📄 Загрузить PDF-схему</button>
     <button id="add-section-btn" class="secondary">Добавить деталь вручную</button>
     <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
-    <div id="pdf-loading"><div class="spinner"></div><span id="pdf-loading-text">Разбираем схему...</span></div>
+    <div id="pdf-loading">
+      <div class="yarn-spinner"><div class="yarn-spinner-line3"></div></div>
+      <span id="pdf-loading-text">Разбираем схему...</span>
+    </div>
     <div id="section-form-holder"></div>
     <div id="section-list"></div>
   </div>
@@ -220,6 +285,7 @@
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const statusEl = document.getElementById('status');
+    const appHeaderEl = document.getElementById('app-header');
     const viewCategories = document.getElementById('view-categories');
     const viewSubcategories = document.getElementById('view-subcategories');
     const viewProjects = document.getElementById('view-projects');
@@ -230,6 +296,9 @@
     const subcategoryTitleEl = document.getElementById('subcategory-title');
     const backToSubcatLabelEl = document.getElementById('back-to-subcategories-label');
     const searchResultsEl = document.getElementById('search-results');
+    const recentProjectsBlockEl = document.getElementById('recent-projects-block');
+    const recentProjectsListEl = document.getElementById('recent-projects-list');
+    const categoryGridTitleEl = document.getElementById('category-grid-title');
     const projectListEl = document.getElementById('project-list');
     const sectionListEl = document.getElementById('section-list');
     const projectTitleEl = document.getElementById('project-title');
@@ -245,6 +314,80 @@
     let allTags = [];
     let projectsCache = [];
     let photoMap = {}; // project_id -> url последнего фото (для миниатюры в каталоге)
+
+    // ---------- Фирменные цвета по названию категории (как разные цвета пряжи) ----------
+    // Для новых категорий, которые пользователь создаёт сам, используется общий бренд-цвет (запасной)
+    const CATEGORY_COLORS = {
+      'Одежда':      { main: '#C17A4E', light: '#F5EAE0' },
+      'Игрушки':     { main: '#D9A441', light: '#FAF0D5' },
+      'Для дома':    { main: '#8A9A6B', light: '#E8EEE0' },
+      'Аксессуары':  { main: '#5B7C99', light: '#DCE9F3' },
+    };
+    const FALLBACK_COLOR = { main: '#A8536A', light: '#F3E4E8' };
+
+    function getTopCategoryOf(subcategoryId) {
+      const subcat = allCategories.find(c => c.id === subcategoryId);
+      if (!subcat) return null;
+      return subcat.parent_id ? allCategories.find(c => c.id === subcat.parent_id) : subcat;
+    }
+
+    function getColorForCategoryName(name) {
+      return CATEGORY_COLORS[name] || FALLBACK_COLOR;
+    }
+
+    function getColorForSubcategory(subcategoryId) {
+      const top = getTopCategoryOf(subcategoryId);
+      return top ? getColorForCategoryName(top.name) : FALLBACK_COLOR;
+    }
+
+    // ---------- Зубчатый край (обвязка крючком) под цветной шапкой ----------
+    function picotEdgeSvg(fillColor) {
+      const W = 400, R = 9, N = 23;
+      const step = (W - 2 * R) / (N - 1);
+      let circles = '';
+      for (let i = 0; i < N; i++) {
+        const cx = R + i * step;
+        circles += `<circle cx="${cx}" cy="${R}" r="${R}" fill="${fillColor}"/>`;
+      }
+      return `<svg class="picot-edge" viewBox="0 0 ${W} ${R * 2}" preserveAspectRatio="none" style="height:${R * 2}px;" aria-hidden="true">
+        <rect x="0" y="0" width="${W}" height="${R}" fill="${fillColor}"/>${circles}
+      </svg>`;
+    }
+
+    // ---------- Отрисовка шапки приложения ----------
+    // color: hex цвет фона шапки; title/subtitle: текст; onBack: функция или null (без кнопки назад)
+    function renderAppHeader(color, title, subtitle, onBack) {
+      appHeaderEl.innerHTML = `
+        <div class="app-header-bar" style="background:${color};">
+          ${onBack ? '<button class="app-header-back" id="app-header-back-btn">‹</button>' : ''}
+          <div style="flex:1; min-width:0;">
+            <div class="app-header-title">${title}</div>
+            ${subtitle ? `<div class="app-header-sub">${subtitle}</div>` : ''}
+          </div>
+        </div>
+        ${picotEdgeSvg(color)}
+      `;
+      if (onBack) {
+        document.getElementById('app-header-back-btn').addEventListener('click', onBack);
+      }
+    }
+
+    // ---------- Круглый "моток пряжи" — иконка категории/проекта ----------
+    function yarnCircleHtml(color, size, emoji, fontSize) {
+      return `<div class="yarn-circle" style="width:${size}px; height:${size}px; font-size:${fontSize}px;
+        background:radial-gradient(circle at 36% 32%, ${color}, ${color}dd 55%, ${color}); ">${emoji}</div>`;
+    }
+
+    function yarnCircleEl(color, size, emoji, fontSize) {
+      const div = document.createElement('div');
+      div.className = 'yarn-circle';
+      div.style.width = size + 'px';
+      div.style.height = size + 'px';
+      div.style.fontSize = fontSize + 'px';
+      div.style.background = `radial-gradient(circle at 36% 32%, ${color}f0, ${color} 55%, ${color}cc)`;
+      div.textContent = emoji;
+      return div;
+    }
 
     // ---------- Уведомления об ошибках ----------
     function showToast(message) {
@@ -420,8 +563,93 @@
       statusEl.textContent = 'Проектов: ' + projectsCache.length;
     }
 
+    // ---------- Недавние проекты с прогресс-баром (на главном экране) ----------
+    async function renderRecentProjects() {
+      if (!projectsCache.length) {
+        recentProjectsBlockEl.style.display = 'none';
+        return;
+      }
+      const recent = projectsCache.slice(0, 3);
+      const projectIds = recent.map(p => p.id);
+
+      const { data: sections } = await sb.from('sections').select('id, project_id').in('project_id', projectIds);
+      const sectionIds = (sections || []).map(s => s.id);
+      const sectionToProject = {};
+      (sections || []).forEach(s => { sectionToProject[s.id] = s.project_id; });
+
+      let rows = [];
+      if (sectionIds.length) {
+        const { data } = await sb.from('rows').select('id, section_id').in('section_id', sectionIds);
+        rows = data || [];
+      }
+
+      let checkedRowIds = new Set();
+      if (rows.length) {
+        const rowIds = rows.map(r => r.id);
+        const { data } = await sb.from('row_progress').select('row_id')
+          .eq('telegram_user_id', currentUserId).in('row_id', rowIds);
+        checkedRowIds = new Set((data || []).map(x => x.row_id));
+      }
+
+      const totals = {}; // projectId -> {done, total}
+      recent.forEach(p => { totals[p.id] = { done: 0, total: 0 }; });
+      rows.forEach(r => {
+        const projId = sectionToProject[r.section_id];
+        if (!totals[projId]) return;
+        totals[projId].total++;
+        if (checkedRowIds.has(r.id)) totals[projId].done++;
+      });
+
+      recentProjectsListEl.innerHTML = '';
+      recent.forEach((p, idx) => {
+        const colors = getColorForSubcategory(p.subcategory_id);
+        const t = totals[p.id];
+        const pct = t.total ? Math.round((t.done / t.total) * 100) : 0;
+
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer;' +
+          (idx < recent.length - 1 ? ' border-bottom:1.5px solid var(--border);' : '');
+        item.addEventListener('click', () => openProject(p.id, p.name));
+
+        const photoUrl = photoMap[p.id];
+        if (photoUrl) {
+          const img = document.createElement('img');
+          img.src = photoUrl;
+          img.style.cssText = 'width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0;';
+          item.appendChild(img);
+        } else {
+          item.appendChild(yarnCircleEl(colors.main, 40, getCategoryIcon(p.subcategory_id), 17));
+        }
+
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1; min-width:0;';
+        info.innerHTML = `
+          <div style="font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:1px;">${getCategoryName(p.subcategory_id) || ''}</div>
+        `;
+        item.appendChild(info);
+
+        if (t.total > 0) {
+          const progWrap = document.createElement('div');
+          progWrap.style.cssText = 'text-align:right; flex-shrink:0;';
+          progWrap.innerHTML = `
+            <div style="font-size:12px; font-weight:700; color:${colors.main};">${pct}%</div>
+            <div style="width:48px; height:4px; background:var(--done-bg); border-radius:4px; margin-top:4px; overflow:hidden;">
+              <div style="height:100%; width:${pct}%; background:${colors.main}; border-radius:4px;"></div>
+            </div>
+          `;
+          item.appendChild(progWrap);
+        }
+
+        recentProjectsListEl.appendChild(item);
+      });
+
+      recentProjectsBlockEl.style.display = 'block';
+    }
+
     // ---------- Карточка проекта (переиспользуется в поиске и списке по подкатегории) ----------
     function createProjectItemEl(p) {
+      const colors = getColorForSubcategory(p.subcategory_id);
       const card = document.createElement('div');
       card.className = 'cat-card';
 
@@ -433,14 +661,16 @@
         img.alt = p.name;
         card.appendChild(img);
       } else {
-        const iconBox = document.createElement('div');
-        iconBox.className = 'cat-card-icon';
-        iconBox.textContent = getCategoryIcon(p.subcategory_id);
-        card.appendChild(iconBox);
+        const iconArea = document.createElement('div');
+        iconArea.className = 'cat-card-icon-area';
+        iconArea.style.background = colors.light;
+        iconArea.appendChild(yarnCircleEl(colors.main, 64, getCategoryIcon(p.subcategory_id), 27));
+        card.appendChild(iconArea);
       }
 
       const name = document.createElement('div');
       name.className = 'cat-card-name';
+      name.style.marginTop = '10px';
       name.textContent = p.name;
       card.appendChild(name);
 
@@ -451,6 +681,8 @@
       if (subcatName) {
         const catBadge = document.createElement('span');
         catBadge.className = 'badge-cat';
+        catBadge.style.background = colors.light;
+        catBadge.style.color = colors.main;
         catBadge.textContent = subcatName;
         badges.appendChild(catBadge);
       }
@@ -483,13 +715,15 @@
       categoryGridEl.innerHTML = '';
       const topLevel = allCategories.filter(c => !c.parent_id);
       topLevel.forEach(cat => {
+        const colors = getColorForCategoryName(cat.name);
         const card = document.createElement('div');
         card.className = 'cat-card';
 
-        const icon = document.createElement('div');
-        icon.className = 'cat-card-icon';
-        icon.textContent = cat.icon || '🧶';
-        card.appendChild(icon);
+        const iconArea = document.createElement('div');
+        iconArea.className = 'cat-card-icon-area';
+        iconArea.style.background = colors.light;
+        iconArea.appendChild(yarnCircleEl(colors.main, 64, cat.icon || '🧶', 27));
+        card.appendChild(iconArea);
 
         const name = document.createElement('div');
         name.className = 'cat-card-name';
@@ -511,19 +745,27 @@
         return;
       }
 
+      const colors = getColorForCategoryName(cat.name);
+      renderAppHeader(colors.main, (cat.icon || '🧶') + ' ' + cat.name, 'Выбери раздел', () => {
+        document.getElementById('back-to-categories-btn').click();
+      });
+
       categoryTitleEl.textContent = cat.name;
       subcategoryGridEl.innerHTML = '';
       subcats.forEach(sc => {
         const card = document.createElement('div');
         card.className = 'cat-card';
 
-        const icon = document.createElement('div');
-        icon.className = 'cat-card-icon';
-        icon.textContent = sc.icon || cat.icon || '🧶';
-        card.appendChild(icon);
+        const iconArea = document.createElement('div');
+        iconArea.className = 'cat-card-icon-area';
+        iconArea.style.height = '80px';
+        iconArea.style.background = colors.light;
+        iconArea.appendChild(yarnCircleEl(colors.main, 52, sc.icon || cat.icon || '🧶', 22));
+        card.appendChild(iconArea);
 
         const name = document.createElement('div');
         name.className = 'cat-card-name';
+        name.style.fontSize = '13px';
         name.textContent = sc.name;
         card.appendChild(name);
 
@@ -539,6 +781,7 @@
       currentCategoryId = null;
       viewSubcategories.style.display = 'none';
       viewCategories.style.display = 'block';
+      renderAppHeader('#A8536A', '🧶 Крючок и клубок', null, null);
     });
 
     // ---------- Уровень 2: Подкатегории → проекты ----------
@@ -546,9 +789,14 @@
       currentSubcategoryId = subcat.id;
       currentCategoryId = subcat.parent_id;
       const parentCat = allCategories.find(c => c.id === subcat.parent_id);
+      const colors = getColorForSubcategory(subcat.id);
 
       subcategoryTitleEl.textContent = subcat.name;
       backToSubcatLabelEl.textContent = parentCat ? parentCat.name : 'Категории';
+
+      renderAppHeader(colors.main, (subcat.icon || '🧶') + ' ' + subcat.name, parentCat ? parentCat.name : '', () => {
+        document.getElementById('back-to-subcategories-btn').click();
+      });
 
       viewCategories.style.display = 'none';
       viewSubcategories.style.display = 'none';
@@ -599,9 +847,13 @@
       if (!filterText) {
         searchResultsEl.innerHTML = '';
         categoryGridEl.style.display = 'grid';
+        categoryGridTitleEl.style.display = '';
+        if (projectsCache.length) recentProjectsBlockEl.style.display = 'block';
         return;
       }
       categoryGridEl.style.display = 'none';
+      categoryGridTitleEl.style.display = 'none';
+      recentProjectsBlockEl.style.display = 'none';
       searchResultsEl.innerHTML = '';
 
       const filtered = projectsCache.filter(p => {
@@ -1034,12 +1286,29 @@
       await loadPhotoMap();
       if (previousViewEl === viewProjects) {
         viewProjects.style.display = 'block';
+        const subcat = allCategories.find(c => c.id === currentSubcategoryId);
+        if (subcat) {
+          const colors = getColorForSubcategory(subcat.id);
+          const parentCat = allCategories.find(c => c.id === subcat.parent_id);
+          renderAppHeader(colors.main, (subcat.icon || '🧶') + ' ' + subcat.name, parentCat ? parentCat.name : '', () => {
+            document.getElementById('back-to-subcategories-btn').click();
+          });
+        }
         renderSubcategoryProjects();
       } else if (previousViewEl === viewSubcategories) {
         viewSubcategories.style.display = 'block';
+        const cat = allCategories.find(c => c.id === currentCategoryId);
+        if (cat) {
+          const colors = getColorForCategoryName(cat.name);
+          renderAppHeader(colors.main, (cat.icon || '🧶') + ' ' + cat.name, 'Выбери раздел', () => {
+            document.getElementById('back-to-categories-btn').click();
+          });
+        }
       } else {
         viewCategories.style.display = 'block';
+        renderAppHeader('#A8536A', '🧶 Крючок и клубок', null, null);
         renderCategoryGrid();
+        await renderRecentProjects();
         renderSearchResults(searchInput.value.trim().toLowerCase());
       }
     }
@@ -1048,6 +1317,13 @@
       previousViewEl = currentVisibleTopView();
       currentProjectId = id;
       projectTitleEl.textContent = name;
+
+      const cached = projectsCache.find(p => p.id === id);
+      const colors = cached ? getColorForSubcategory(cached.subcategory_id) : FALLBACK_COLOR;
+      renderAppHeader(colors.main, name, null, () => {
+        document.getElementById('back-btn').click();
+      });
+
       hideAllTopViews();
       viewProject.style.display = 'block';
       sectionFormHolder.innerHTML = '';
@@ -1103,6 +1379,13 @@
 
         const header = document.createElement('div');
         header.className = 'sec-header';
+
+        const badge = document.createElement('div');
+        badge.className = 'part-badge';
+        badge.style.background = 'var(--done-bg)';
+        badge.style.color = 'var(--text-secondary)';
+        badge.textContent = '…';
+        header.appendChild(badge);
 
         const title = document.createElement('h2');
         title.textContent = sec.title;
@@ -1198,7 +1481,7 @@
         block.appendChild(addRowBtn);
 
         sectionListEl.appendChild(block);
-        await loadRows(sec.id, rowsWrap);
+        await loadRows(sec.id, rowsWrap, badge);
       }
     }
 
@@ -1233,7 +1516,10 @@
     });
 
     // ---------- Ряды (rows) ----------
-    async function loadRows(sectionId, container) {
+    async function loadRows(sectionId, container, badgeEl) {
+      badgeEl = badgeEl || container._badgeEl;
+      container._badgeEl = badgeEl;
+
       const { data: rows, error } = await sb
         .from('rows')
         .select('*')
@@ -1243,6 +1529,17 @@
 
       const rowIds = rows.map(r => r.id);
       const checkedSet = await loadRowProgress(rowIds);
+
+      function updateBadge() {
+        if (!badgeEl) return;
+        const doneCount = rowIds.filter(id => checkedSet.has(id)).length;
+        const total = rowIds.length;
+        const complete = total > 0 && doneCount === total;
+        badgeEl.textContent = complete ? '✓' : String(total - doneCount);
+        badgeEl.style.background = complete ? 'var(--accent)' : 'var(--accent-light)';
+        badgeEl.style.color = complete ? 'white' : 'var(--accent)';
+      }
+      updateBadge();
 
       container.innerHTML = '';
       rows.forEach(r => {
@@ -1275,6 +1572,7 @@
         checkbox.addEventListener('change', async () => {
           item.classList.toggle('done', checkbox.checked);
           if (checkbox.checked) {
+            checkedSet.add(r.id);
             const { error } = await sb.from('row_progress').upsert({
               row_id: r.id,
               telegram_user_id: currentUserId,
@@ -1282,12 +1580,14 @@
             });
             if (error) showToast('Ошибка сохранения: ' + error.message);
           } else {
+            checkedSet.delete(r.id);
             const { error } = await sb.from('row_progress')
               .delete()
               .eq('row_id', r.id)
               .eq('telegram_user_id', currentUserId);
             if (error) showToast('Ошибка сохранения: ' + error.message);
           }
+          updateBadge();
         });
 
         const rowActions = document.createElement('div');
@@ -1605,11 +1905,13 @@
 
     // ---------- Старт ----------
     async function init() {
+      renderAppHeader('#A8536A', '🧶 Крючок и клубок', null, null);
       await loadCategories();
       await loadTags();
       await loadPhotoMap();
       await loadProjects();
       renderCategoryGrid();
+      await renderRecentProjects();
       viewCategories.style.display = 'block';
     }
     init();
