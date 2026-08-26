@@ -1406,6 +1406,18 @@
         .order('position', { ascending: true });
       if (error) { showToast('Ошибка: ' + error.message); return; }
 
+      // Личное состояние "свёрнуто/развёрнуто" по деталям (своё для каждого пользователя)
+      const sectionIds = sections.map(s => s.id);
+      let collapseState = {}; // section_id -> collapsed (true/false)
+      if (sectionIds.length) {
+        const { data: stateRows } = await sb
+          .from('section_collapse_state')
+          .select('section_id, collapsed')
+          .eq('telegram_user_id', currentUserId)
+          .in('section_id', sectionIds);
+        (stateRows || []).forEach(s => { collapseState[s.section_id] = s.collapsed; });
+      }
+
       sectionListEl.innerHTML = '';
       let sectionIndex = 0;
       for (const sec of sections) {
@@ -1534,15 +1546,23 @@
 
         block.appendChild(partBody);
 
-        // Свернуть все детали, кроме первой — так экран проекта не превращается в длиннющую простыню
-        if (!isFirstSection) {
+        // Состояние сворачивания: берём то, что пользователь сохранил в прошлый раз;
+        // если для этой детали ещё ничего не сохранено — по умолчанию первая открыта, остальные свёрнуты
+        const savedCollapsed = collapseState.hasOwnProperty(sec.id) ? collapseState[sec.id] : !isFirstSection;
+        if (savedCollapsed) {
           partBody.style.display = 'none';
           chevron.style.transform = 'rotate(-90deg)';
         }
-        toggleArea.addEventListener('click', () => {
-          const collapsed = partBody.style.display === 'none';
-          partBody.style.display = collapsed ? '' : 'none';
-          chevron.style.transform = collapsed ? '' : 'rotate(-90deg)';
+        toggleArea.addEventListener('click', async () => {
+          const willBeCollapsed = partBody.style.display !== 'none';
+          partBody.style.display = willBeCollapsed ? 'none' : '';
+          chevron.style.transform = willBeCollapsed ? 'rotate(-90deg)' : '';
+          const { error } = await sb.from('section_collapse_state').upsert({
+            section_id: sec.id,
+            telegram_user_id: currentUserId,
+            collapsed: willBeCollapsed
+          });
+          if (error) showToast('Ошибка сохранения: ' + error.message);
         });
 
         sectionListEl.appendChild(block);
