@@ -86,8 +86,8 @@
   <div id="view-project">
     <button class="back-btn" id="back-btn">← Все проекты</button>
     <h2 id="project-title"></h2>
-    <button id="add-section-btn">+ Добавить деталь</button>
-    <button id="upload-pdf-btn" class="secondary">📄 Загрузить PDF-схему</button>
+    <button id="upload-pdf-btn">📄 Загрузить PDF-схему</button>
+    <button id="add-section-btn" class="secondary">+ Добавить деталь вручную</button>
     <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
     <div id="pdf-loading"><div class="spinner"></div><span id="pdf-loading-text">Разбираем схему...</span></div>
     <div id="section-form-holder"></div>
@@ -124,6 +124,7 @@
     }
 
     // ---------- Помощник: создать инлайн-форму ----------
+    // fields: [{name, label, type: 'text'|'number'|'textarea', placeholder}]
     function buildForm(fields, onSubmit, submitLabel) {
       const form = document.createElement('div');
       form.className = 'inline-form';
@@ -436,7 +437,7 @@
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
-          const result = reader.result;
+          const result = reader.result; // формат "data:application/pdf;base64,XXXX"
           const base64 = result.split(',')[1];
           resolve(base64);
         };
@@ -446,6 +447,7 @@
     }
 
     async function saveParsedSections(sections) {
+      // узнаём, сколько деталей уже есть в проекте, чтобы продолжить нумерацию position
       const { count: existingSectionsCount } = await sb
         .from('sections')
         .select('*', { count: 'exact', head: true })
