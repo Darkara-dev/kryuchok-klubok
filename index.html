@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Крючок и клубок</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  body {
+    font-family: -apple-system, sans-serif;
+    background: var(--tg-theme-bg-color, #ffffff);
+    color: var(--tg-theme-text-color, #000000);
+    text-align: center;
+    padding-top: 80px;
+  }
+  h1 { font-size: 22px; }
+</style>
+</head>
+<body>
+  <h1>🧶 Крючок и клубок</h1>
+  <p>Приложение запустилось!</p>
+
+  <script>
+    // сообщаем Telegram, что приложение готово к показу
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+  </script>
+</body>
+</html>
