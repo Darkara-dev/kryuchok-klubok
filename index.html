@@ -55,6 +55,17 @@
   .inline-form textarea{ resize:vertical; min-height:44px; }
   .form-actions{ margin-top:12px; }
 
+  #pdf-loading{
+    display:none; align-items:center; gap:8px; margin:10px 0;
+    font-size:13px; color:var(--text-secondary);
+  }
+  #pdf-loading.active{ display:flex; }
+  .spinner{
+    width:16px; height:16px; border:2px solid var(--border);
+    border-top-color:var(--accent); border-radius:50%;
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
   #toast{
     position:fixed; left:16px; right:16px; bottom:16px;
     background:#8a3f27; color:white; padding:10px 14px; border-radius:8px;
@@ -76,6 +87,9 @@
     <button class="back-btn" id="back-btn">← Все проекты</button>
     <h2 id="project-title"></h2>
     <button id="add-section-btn">+ Добавить деталь</button>
+    <button id="upload-pdf-btn" class="secondary">📄 Загрузить PDF-схему</button>
+    <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
+    <div id="pdf-loading"><div class="spinner"></div><span id="pdf-loading-text">Разбираем схему...</span></div>
     <div id="section-form-holder"></div>
     <div id="section-list"></div>
   </div>
@@ -358,6 +372,116 @@
       });
       if (error) { showToast('Ошибка: ' + error.message); return; }
       loadRows(sectionId, container);
+    }
+
+    // ---------- Загрузка и разбор PDF ----------
+    const pdfInput = document.getElementById('pdf-input');
+    const pdfLoading = document.getElementById('pdf-loading');
+    const pdfLoadingText = document.getElementById('pdf-loading-text');
+
+    document.getElementById('upload-pdf-btn').addEventListener('click', () => {
+      pdfInput.click();
+    });
+
+    pdfInput.addEventListener('change', async () => {
+      const file = pdfInput.files[0];
+      if (!file) return;
+
+      pdfLoading.classList.add('active');
+      pdfLoadingText.textContent = 'Читаем файл...';
+
+      try {
+        const base64 = await fileToBase64(file);
+
+        pdfLoadingText.textContent = 'Нейронка разбирает схему (это может занять минуту)...';
+
+        const resp = await fetch('/api/parse-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pdfBase64: base64 })
+        });
+
+        const result = await resp.json();
+
+        if (!resp.ok || result.error) {
+          showToast('Ошибка: ' + (result.error || 'неизвестная ошибка'));
+          return;
+        }
+
+        if (result.scanned) {
+          showToast(result.message);
+          return;
+        }
+
+        if (!result.sections || !result.sections.length) {
+          showToast('Нейронка не смогла найти детали в этом файле');
+          return;
+        }
+
+        pdfLoadingText.textContent = 'Сохраняем в базу...';
+        await saveParsedSections(result.sections);
+
+        showToast('Готово! Добавлено деталей: ' + result.sections.length);
+        loadSections();
+
+      } catch (err) {
+        showToast('Ошибка: ' + err.message);
+      } finally {
+        pdfLoading.classList.remove('active');
+        pdfInput.value = '';
+      }
+    });
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function saveParsedSections(sections) {
+      const { count: existingSectionsCount } = await sb
+        .from('sections')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', currentProjectId);
+
+      let sectionPosition = existingSectionsCount || 0;
+
+      for (const sec of sections) {
+        const { data: newSection, error: secError } = await sb
+          .from('sections')
+          .insert({
+            project_id: currentProjectId,
+            title: sec.title,
+            meta: sec.meta || null,
+            position: sectionPosition
+          })
+          .select()
+          .single();
+
+        if (secError) { showToast('Ошибка сохранения детали: ' + secError.message); continue; }
+        sectionPosition++;
+
+        const rowsToInsert = (sec.rows || []).map((r, idx) => ({
+          section_id: newSection.id,
+          row_number: idx + 1,
+          description: r.description,
+          note: r.note || null,
+          total_stitches: r.total || null,
+          position: idx
+        }));
+
+        if (rowsToInsert.length) {
+          const { error: rowsError } = await sb.from('rows').insert(rowsToInsert);
+          if (rowsError) showToast('Ошибка сохранения рядов: ' + rowsError.message);
+        }
+      }
     }
 
     // ---------- Старт ----------
