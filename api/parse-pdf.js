@@ -38,25 +38,31 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { pdfBase64 } = req.body;
-    if (!pdfBase64) {
-      return res.status(400).json({ error: 'Файл не передан' });
+    const { pdfUrl } = req.body;
+    if (!pdfUrl) {
+      return res.status(400).json({ error: 'Ссылка на файл не передана' });
     }
 
-    // --- 1. Достаём текст из PDF ---
-    const buffer = Buffer.from(pdfBase64, 'base64');
+    // --- 1. Скачиваем PDF по ссылке из Supabase Storage ---
+    const pdfResponse = await fetch(pdfUrl);
+    if (!pdfResponse.ok) {
+      return res.status(400).json({ error: 'Не удалось скачать файл по ссылке' });
+    }
+    const arrayBuffer = await pdfResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // --- 2. Достаём текст из PDF ---
     const pdfData = await pdfParse(buffer);
     const text = pdfData.text.trim();
 
     if (text.length < 200) {
-      // Слишком мало текста — вероятно, это скан/фото без текстового слоя
       return res.status(200).json({
         scanned: true,
         message: 'Похоже, это скан или фото без текстового слоя. Такие схемы пока не поддерживаются — этот тип разбора добавим отдельным шагом.'
       });
     }
 
-    // --- 2. Отправляем текст нейронке через OpenRouter ---
+    // --- 3. Отправляем текст нейронке через OpenRouter ---
     const orResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -85,7 +91,7 @@ module.exports = async (req, res) => {
     const orData = await orResponse.json();
     const rawContent = orData.choices?.[0]?.message?.content || '';
 
-    // --- 3. Достаём JSON из ответа (на случай если модель обернула в ```json ... ```) ---
+    // --- 4. Достаём JSON из ответа ---
     let cleaned = rawContent.trim();
     cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
 
@@ -100,13 +106,5 @@ module.exports = async (req, res) => {
 
   } catch (err) {
     return res.status(500).json({ error: 'Внутренняя ошибка: ' + err.message });
-  }
-};
-
-module.exports.config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb'
-    }
   }
 };
