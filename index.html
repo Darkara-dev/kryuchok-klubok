@@ -5,25 +5,80 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Крючок и клубок</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   body {
     font-family: -apple-system, sans-serif;
     background: var(--tg-theme-bg-color, #ffffff);
     color: var(--tg-theme-text-color, #000000);
-    text-align: center;
-    padding-top: 80px;
+    padding: 20px;
   }
-  h1 { font-size: 22px; }
+  h1 { font-size: 20px; }
+  button {
+    background: #c95a3a;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 15px;
+    margin: 10px 0;
+  }
+  #project-list { margin-top: 20px; }
+  .project-item {
+    padding: 10px;
+    border: 1px solid #e5ded2;
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  #status { color: #8a7f6c; font-size: 13px; }
 </style>
 </head>
 <body>
   <h1>🧶 Крючок и клубок</h1>
-  <p>Приложение запустилось!</p>
+  <p id="status">Подключаемся к базе...</p>
+
+  <button id="add-btn">+ Тестовый проект</button>
+
+  <div id="project-list"></div>
 
   <script>
-    // сообщаем Telegram, что приложение готово к показу
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
+
+    // --- Подключение к Supabase ---
+    const SUPABASE_URL = 'https://vcsgpauejnqznygdqxyo.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_MRJ8BbTV9cvAnygOzySE7A_k29SDSuD';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const statusEl = document.getElementById('status');
+    const listEl = document.getElementById('project-list');
+
+    async function loadProjects() {
+      const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+      if (error) {
+        statusEl.textContent = 'Ошибка: ' + error.message;
+        return;
+      }
+      statusEl.textContent = 'Подключено! Проектов: ' + data.length;
+      listEl.innerHTML = '';
+      data.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'project-item';
+        div.textContent = p.name;
+        listEl.appendChild(div);
+      });
+    }
+
+    document.getElementById('add-btn').addEventListener('click', async () => {
+      const { error } = await supabase.from('projects').insert({ name: 'Тестовый проект ' + new Date().toLocaleTimeString() });
+      if (error) {
+        alert('Ошибка: ' + error.message);
+      } else {
+        loadProjects();
+      }
+    });
+
+    loadProjects();
   </script>
 </body>
 </html>
