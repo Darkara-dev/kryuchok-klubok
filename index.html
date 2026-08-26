@@ -1272,6 +1272,15 @@
       loadRows(sectionId, container);
     }
 
+    // ---------- Безопасное имя файла для Supabase Storage ----------
+    // Storage не разрешает кириллицу, пробелы и некоторые символы в пути к файлу,
+    // поэтому сохраняем оригинальное имя только как caption, а путь строим из безопасных символов
+    function safeFileName(originalName) {
+      const dotIndex = originalName.lastIndexOf('.');
+      const ext = dotIndex > -1 ? originalName.slice(dotIndex + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+      return 'file' + (ext ? '.' + ext : '');
+    }
+
     // ---------- Фото готовой работы ----------
     const photoInput = document.getElementById('photo-input');
     const photoGalleryEl = document.getElementById('photo-gallery');
@@ -1285,7 +1294,7 @@
       if (!file) return;
 
       try {
-        const filePath = currentProjectId + '/' + Date.now() + '_' + file.name;
+        const filePath = currentProjectId + '/' + Date.now() + '_' + safeFileName(file.name);
         const { error: uploadError } = await sb.storage.from('photos').upload(filePath, file);
         if (uploadError) { showToast('Ошибка загрузки фото: ' + uploadError.message); return; }
 
@@ -1343,7 +1352,7 @@
 
       try {
         // --- 1. Загружаем PDF в Supabase Storage (лимит там намного больше, чем на Vercel) ---
-        const filePath = currentProjectId + '/' + Date.now() + '_' + file.name;
+        const filePath = currentProjectId + '/' + Date.now() + '_' + safeFileName(file.name);
         const { error: uploadError } = await sb.storage.from('schemas').upload(filePath, file);
 
         if (uploadError) {
