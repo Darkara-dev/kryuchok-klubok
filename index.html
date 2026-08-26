@@ -48,7 +48,7 @@
     width:72px; height:72px; border-radius:8px; object-fit:cover;
     border:1px solid var(--border);
   }
-  .project-badges{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .project-badges{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; justify-content:center; }
   .badge-cat{
     font-size:11px; background:#f0e6da; color:#8a6a3a; padding:3px 8px; border-radius:6px;
   }
@@ -75,7 +75,21 @@
   .row-desc{ flex:1; font-size:14px; }
   .row-note{ font-size:12px; color:var(--text-secondary); margin-top:2px; }
   .sec-meta{ font-size:12px; color:var(--text-secondary); margin:2px 0 8px; }
-  #view-project, #view-list{ display:none; }
+  #view-project, #view-categories, #view-subcategories, #view-projects{ display:none; }
+
+  .card-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;
+  }
+  .cat-card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:20px 12px; display:flex; flex-direction:column; align-items:center;
+    gap:8px; cursor:pointer; text-align:center;
+  }
+  .cat-card-icon{ font-size:34px; }
+  .cat-card-name{ font-size:14px; font-weight:500; }
+  .project-card-img{
+    width:100%; aspect-ratio:1; border-radius:10px; object-fit:cover; background:#f0e6da;
+  }
 
   .inline-form{
     background:#fbf9f5; border:1px solid var(--border); border-radius:10px;
@@ -89,6 +103,33 @@
   }
   .inline-form textarea{ resize:vertical; min-height:44px; }
   .form-actions{ margin-top:12px; }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .icon-btn{
+    background:none; border:none; padding:4px 6px; font-size:14px;
+    color:var(--text-secondary); margin:0;
+  }
+  .row-actions{ display:flex; gap:2px; align-items:center; }
+  .sec-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sec-header h2{ flex:1; }
+  .project-title-row{ display:flex; align-items:center; gap:8px; }
+  .project-title-row h2{ flex:1; }
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.45);
+    display:flex; align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  .modal-box{
+    background:white; border-radius:12px; padding:18px; max-width:340px; width:100%;
+  }
+  .modal-title{ font-weight:600; font-size:16px; margin-bottom:6px; }
+  .modal-message{ font-size:13.5px; color:var(--text-secondary); margin-bottom:12px; line-height:1.4; }
+  .modal-input{
+    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:7px;
+    font-size:14px; margin-bottom:12px; font-family:inherit;
+  }
+  .modal-actions{ display:flex; gap:8px; justify-content:flex-end; }
+  .btn-danger{ background:#b0392e; }
 
   #pdf-loading{
     display:none; align-items:center; gap:8px; margin:10px 0;
@@ -112,16 +153,34 @@
   <h1>🧶 Крючок и клубок</h1>
   <p id="status">Подключаемся к базе...</p>
 
-  <div id="view-list">
+  <div id="view-categories">
+    <input type="text" id="search-input" placeholder="Поиск по тегам или названию..." style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; margin:10px 0; font-family:inherit;">
+    <div id="search-results" class="card-grid"></div>
+    <div id="category-grid" class="card-grid"></div>
+  </div>
+
+  <div id="view-subcategories">
+    <button class="back-btn" id="back-to-categories-btn">← Категории</button>
+    <h2 id="category-title"></h2>
+    <div id="subcategory-grid" class="card-grid"></div>
+  </div>
+
+  <div id="view-projects">
+    <button class="back-btn" id="back-to-subcategories-btn">← <span id="back-to-subcategories-label"></span></button>
+    <h2 id="subcategory-title"></h2>
     <button id="add-project-btn">+ Новый проект</button>
     <div id="project-form-holder"></div>
-    <input type="text" id="search-input" placeholder="Поиск по тегам или названию..." style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; margin:10px 0; font-family:inherit;">
-    <div id="project-list"></div>
+    <div id="project-list" class="card-grid"></div>
   </div>
 
   <div id="view-project">
-    <button class="back-btn" id="back-btn">← Все проекты</button>
-    <h2 id="project-title"></h2>
+    <button class="back-btn" id="back-btn">← Проекты</button>
+    <div class="project-title-row">
+      <h2 id="project-title"></h2>
+      <button id="edit-project-btn" class="icon-btn" title="Редактировать проект">✎</button>
+      <button id="delete-project-btn" class="icon-btn" title="Удалить проект">🗑</button>
+    </div>
+    <div id="project-edit-form-holder"></div>
     <div id="photo-gallery" class="photo-gallery"></div>
     <button id="upload-photo-btn" class="secondary">📷 Добавить фото готовой работы</button>
     <input type="file" id="photo-input" accept="image/*" style="display:none;">
@@ -144,8 +203,16 @@
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const statusEl = document.getElementById('status');
-    const viewList = document.getElementById('view-list');
+    const viewCategories = document.getElementById('view-categories');
+    const viewSubcategories = document.getElementById('view-subcategories');
+    const viewProjects = document.getElementById('view-projects');
     const viewProject = document.getElementById('view-project');
+    const categoryGridEl = document.getElementById('category-grid');
+    const subcategoryGridEl = document.getElementById('subcategory-grid');
+    const categoryTitleEl = document.getElementById('category-title');
+    const subcategoryTitleEl = document.getElementById('subcategory-title');
+    const backToSubcatLabelEl = document.getElementById('back-to-subcategories-label');
+    const searchResultsEl = document.getElementById('search-results');
     const projectListEl = document.getElementById('project-list');
     const sectionListEl = document.getElementById('section-list');
     const projectTitleEl = document.getElementById('project-title');
@@ -155,6 +222,8 @@
     const searchInput = document.getElementById('search-input');
 
     let currentProjectId = null;
+    let currentCategoryId = null;
+    let currentSubcategoryId = null;
     let allCategories = [];
     let allTags = [];
     let projectsCache = [];
@@ -165,6 +234,68 @@
       toastEl.textContent = message;
       toastEl.style.display = 'block';
       setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
+    }
+
+    // ---------- Модалка подтверждения удаления ----------
+    // requireWord: если задано (например "Удалить"), кнопка активна только когда текст совпал
+    function showConfirmModal({ title, message, requireWord, onConfirm }) {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+
+      const box = document.createElement('div');
+      box.className = 'modal-box';
+
+      const h = document.createElement('div');
+      h.className = 'modal-title';
+      h.textContent = title;
+      box.appendChild(h);
+
+      const msg = document.createElement('div');
+      msg.className = 'modal-message';
+      msg.textContent = message;
+      box.appendChild(msg);
+
+      let confirmInput = null;
+      if (requireWord) {
+        confirmInput = document.createElement('input');
+        confirmInput.className = 'modal-input';
+        confirmInput.placeholder = 'Введите "' + requireWord + '"';
+        box.appendChild(confirmInput);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'modal-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'secondary';
+      cancelBtn.textContent = 'Отмена';
+
+      const okBtn = document.createElement('button');
+      okBtn.className = 'btn-danger';
+      okBtn.textContent = 'Удалить';
+      if (requireWord) okBtn.disabled = true;
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(okBtn);
+      box.appendChild(actions);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      if (requireWord) {
+        confirmInput.addEventListener('input', () => {
+          okBtn.disabled = confirmInput.value.trim() !== requireWord;
+        });
+      }
+
+      cancelBtn.addEventListener('click', () => overlay.remove());
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+      okBtn.addEventListener('click', async () => {
+        if (requireWord && confirmInput.value.trim() !== requireWord) return;
+        okBtn.disabled = true;
+        await onConfirm();
+        overlay.remove();
+      });
     }
 
     // ---------- Помощник: создать инлайн-форму ----------
@@ -248,7 +379,7 @@
       });
     }
 
-    // ---------- Список проектов ----------
+    // ---------- Загрузка всех проектов (кэш для поиска и списков по подкатегориям) ----------
     async function loadProjects() {
       const { data, error } = await sb
         .from('projects')
@@ -257,88 +388,208 @@
       if (error) { showToast('Ошибка: ' + error.message); return; }
       projectsCache = data || [];
       statusEl.textContent = 'Проектов: ' + projectsCache.length;
-      renderProjectList(searchInput.value.trim().toLowerCase());
     }
 
-    function renderProjectList(filterText) {
+    // ---------- Карточка проекта (переиспользуется в поиске и списке по подкатегории) ----------
+    function createProjectItemEl(p) {
+      const card = document.createElement('div');
+      card.className = 'cat-card';
+
+      const photoUrl = photoMap[p.id];
+      if (photoUrl) {
+        const img = document.createElement('img');
+        img.className = 'project-card-img';
+        img.src = photoUrl;
+        img.alt = p.name;
+        card.appendChild(img);
+      } else {
+        const iconBox = document.createElement('div');
+        iconBox.className = 'cat-card-icon';
+        iconBox.textContent = getCategoryIcon(p.subcategory_id);
+        card.appendChild(iconBox);
+      }
+
+      const name = document.createElement('div');
+      name.className = 'cat-card-name';
+      name.textContent = p.name;
+      card.appendChild(name);
+
+      const badges = document.createElement('div');
+      badges.className = 'project-badges';
+
+      const subcatName = getCategoryName(p.subcategory_id);
+      if (subcatName) {
+        const catBadge = document.createElement('span');
+        catBadge.className = 'badge-cat';
+        catBadge.textContent = subcatName;
+        badges.appendChild(catBadge);
+      }
+
+      (p.project_tags || []).forEach(pt => {
+        if (!pt.tags?.name) return;
+        const tagBadge = document.createElement('span');
+        tagBadge.className = 'badge-tag';
+        tagBadge.textContent = pt.tags.name;
+        badges.appendChild(tagBadge);
+      });
+
+      if (badges.children.length) card.appendChild(badges);
+
+      card.addEventListener('click', () => openProject(p.id, p.name));
+      return card;
+    }
+
+    function emptyMessage(text) {
+      const empty = document.createElement('p');
+      empty.style.color = 'var(--text-secondary)';
+      empty.style.fontSize = '13px';
+      empty.style.gridColumn = '1 / -1';
+      empty.textContent = text;
+      return empty;
+    }
+
+    // ---------- Уровень 1: Категории ----------
+    function renderCategoryGrid() {
+      categoryGridEl.innerHTML = '';
+      const topLevel = allCategories.filter(c => !c.parent_id);
+      topLevel.forEach(cat => {
+        const card = document.createElement('div');
+        card.className = 'cat-card';
+
+        const icon = document.createElement('div');
+        icon.className = 'cat-card-icon';
+        icon.textContent = cat.icon || '🧶';
+        card.appendChild(icon);
+
+        const name = document.createElement('div');
+        name.className = 'cat-card-name';
+        name.textContent = cat.name;
+        card.appendChild(name);
+
+        card.addEventListener('click', () => openCategory(cat));
+        categoryGridEl.appendChild(card);
+      });
+    }
+
+    function openCategory(cat) {
+      currentCategoryId = cat.id;
+      const subcats = allCategories.filter(c => c.parent_id === cat.id);
+
+      if (subcats.length === 1) {
+        // Единственная подкатегория — сразу переходим к проектам, минуя лишний шаг
+        openSubcategory(subcats[0]);
+        return;
+      }
+
+      categoryTitleEl.textContent = cat.name;
+      subcategoryGridEl.innerHTML = '';
+      subcats.forEach(sc => {
+        const card = document.createElement('div');
+        card.className = 'cat-card';
+
+        const icon = document.createElement('div');
+        icon.className = 'cat-card-icon';
+        icon.textContent = cat.icon || '🧶';
+        card.appendChild(icon);
+
+        const name = document.createElement('div');
+        name.className = 'cat-card-name';
+        name.textContent = sc.name;
+        card.appendChild(name);
+
+        card.addEventListener('click', () => openSubcategory(sc));
+        subcategoryGridEl.appendChild(card);
+      });
+
+      viewCategories.style.display = 'none';
+      viewSubcategories.style.display = 'block';
+    }
+
+    document.getElementById('back-to-categories-btn').addEventListener('click', () => {
+      currentCategoryId = null;
+      viewSubcategories.style.display = 'none';
+      viewCategories.style.display = 'block';
+    });
+
+    // ---------- Уровень 2: Подкатегории → проекты ----------
+    function openSubcategory(subcat) {
+      currentSubcategoryId = subcat.id;
+      currentCategoryId = subcat.parent_id;
+      const parentCat = allCategories.find(c => c.id === subcat.parent_id);
+
+      subcategoryTitleEl.textContent = subcat.name;
+      backToSubcatLabelEl.textContent = parentCat ? parentCat.name : 'Категории';
+
+      viewCategories.style.display = 'none';
+      viewSubcategories.style.display = 'none';
+      viewProjects.style.display = 'block';
+
+      renderSubcategoryProjects();
+    }
+
+    function renderSubcategoryProjects() {
       projectListEl.innerHTML = '';
+      const filtered = projectsCache.filter(p => p.subcategory_id === currentSubcategoryId);
+      if (!filtered.length) {
+        projectListEl.appendChild(emptyMessage('Пока нет проектов в этой подкатегории'));
+        return;
+      }
+      filtered.forEach(p => projectListEl.appendChild(createProjectItemEl(p)));
+    }
+
+    document.getElementById('back-to-subcategories-btn').addEventListener('click', () => {
+      currentSubcategoryId = null;
+      viewProjects.style.display = 'none';
+
+      const parentCat = allCategories.find(c => c.id === currentCategoryId);
+      const siblingSubcats = parentCat ? allCategories.filter(c => c.parent_id === parentCat.id) : [];
+
+      if (parentCat && siblingSubcats.length > 1) {
+        viewSubcategories.style.display = 'block';
+      } else {
+        // если у категории была всего 1 подкатегория (мы её пропускали) — возвращаемся сразу к категориям
+        currentCategoryId = null;
+        viewCategories.style.display = 'block';
+      }
+    });
+
+    // ---------- Глобальный поиск (на главном экране, по всем категориям) ----------
+    function renderSearchResults(filterText) {
+      if (!filterText) {
+        searchResultsEl.innerHTML = '';
+        categoryGridEl.style.display = 'grid';
+        return;
+      }
+      categoryGridEl.style.display = 'none';
+      searchResultsEl.innerHTML = '';
+
       const filtered = projectsCache.filter(p => {
-        if (!filterText) return true;
         const tagNames = (p.project_tags || []).map(pt => pt.tags?.name?.toLowerCase() || '');
         return p.name.toLowerCase().includes(filterText) || tagNames.some(t => t.includes(filterText));
       });
 
       if (!filtered.length) {
-        const empty = document.createElement('p');
-        empty.style.color = 'var(--text-secondary)';
-        empty.style.fontSize = '13px';
-        empty.textContent = filterText ? 'Ничего не найдено' : 'Пока нет проектов';
-        projectListEl.appendChild(empty);
+        searchResultsEl.appendChild(emptyMessage('Ничего не найдено'));
         return;
       }
-
-      filtered.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'project-item';
-
-        const photoUrl = photoMap[p.id];
-        if (photoUrl) {
-          const img = document.createElement('img');
-          img.className = 'project-thumb';
-          img.src = photoUrl;
-          img.alt = p.name;
-          div.appendChild(img);
-        } else {
-          const iconBox = document.createElement('div');
-          iconBox.className = 'project-thumb-icon';
-          iconBox.textContent = getCategoryIcon(p.subcategory_id);
-          div.appendChild(iconBox);
-        }
-
-        const info = document.createElement('div');
-        info.className = 'project-info';
-
-        const name = document.createElement('div');
-        name.textContent = p.name;
-        info.appendChild(name);
-
-        const badges = document.createElement('div');
-        badges.className = 'project-badges';
-
-        const subcatName = getCategoryName(p.subcategory_id);
-        if (subcatName) {
-          const catBadge = document.createElement('span');
-          catBadge.className = 'badge-cat';
-          catBadge.textContent = subcatName;
-          badges.appendChild(catBadge);
-        }
-
-        (p.project_tags || []).forEach(pt => {
-          if (!pt.tags?.name) return;
-          const tagBadge = document.createElement('span');
-          tagBadge.className = 'badge-tag';
-          tagBadge.textContent = pt.tags.name;
-          badges.appendChild(tagBadge);
-        });
-
-        if (badges.children.length) info.appendChild(badges);
-        div.appendChild(info);
-
-        div.addEventListener('click', () => openProject(p.id, p.name));
-        projectListEl.appendChild(div);
-      });
+      filtered.forEach(p => searchResultsEl.appendChild(createProjectItemEl(p)));
     }
 
     searchInput.addEventListener('input', () => {
-      renderProjectList(searchInput.value.trim().toLowerCase());
+      renderSearchResults(searchInput.value.trim().toLowerCase());
     });
 
     document.getElementById('add-project-btn').addEventListener('click', () => {
       projectFormHolder.innerHTML = '';
-      projectFormHolder.appendChild(buildProjectForm());
+      projectFormHolder.appendChild(buildProjectForm({ presetSubcategoryId: currentSubcategoryId }));
     });
 
-    function buildProjectForm() {
+    function buildProjectForm(opts) {
+      opts = opts || {};
+      const isEdit = opts.mode === 'edit';
+      const project = opts.project || null;
+      const existingTagIds = opts.existingTagIds || new Set();
+
       const form = document.createElement('div');
       form.className = 'inline-form';
 
@@ -348,6 +599,7 @@
       form.appendChild(nameLabel);
       const nameInput = document.createElement('input');
       nameInput.placeholder = 'Например: Тыква-брелок';
+      if (isEdit) nameInput.value = project.name;
       form.appendChild(nameInput);
 
       // Категория
@@ -431,7 +683,33 @@
           opt.textContent = sc.name;
           subcatSelect.appendChild(opt);
         });
+
+        if (isEdit && project.subcategory_id && subcats.some(sc => sc.id === project.subcategory_id)) {
+          subcatSelect.value = project.subcategory_id;
+        }
+        if (!isEdit && opts.presetSubcategoryId && subcats.some(sc => sc.id === opts.presetSubcategoryId)) {
+          subcatSelect.value = opts.presetSubcategoryId;
+        }
       });
+
+      // Предзаполнение в режиме редактирования
+      if (isEdit && project.subcategory_id) {
+        const currentSubcat = allCategories.find(c => c.id === project.subcategory_id);
+        const parentId = currentSubcat ? currentSubcat.parent_id : null;
+        if (parentId) {
+          catSelect.value = parentId;
+          catSelect.dispatchEvent(new Event('change'));
+        }
+      }
+
+      // Предзаполнение при создании из конкретной подкатегории
+      if (!isEdit && opts.presetSubcategoryId) {
+        const presetSubcat = allCategories.find(c => c.id === opts.presetSubcategoryId);
+        if (presetSubcat && presetSubcat.parent_id) {
+          catSelect.value = presetSubcat.parent_id;
+          catSelect.dispatchEvent(new Event('change'));
+        }
+      }
 
       // Теги
       const tagsLabel = document.createElement('label');
@@ -439,7 +717,7 @@
       form.appendChild(tagsLabel);
       const tagPicker = document.createElement('div');
       tagPicker.className = 'tag-picker';
-      const selectedTagIds = new Set();
+      const selectedTagIds = new Set(isEdit ? existingTagIds : []);
 
       function renderTagPills() {
         tagPicker.innerHTML = '';
@@ -484,7 +762,7 @@
       const actions = document.createElement('div');
       actions.className = 'form-actions';
       const saveBtn = document.createElement('button');
-      saveBtn.textContent = 'Создать проект';
+      saveBtn.textContent = isEdit ? 'Сохранить' : 'Создать проект';
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'secondary';
       cancelBtn.textContent = 'Отмена';
@@ -501,32 +779,78 @@
 
         saveBtn.disabled = true;
 
-        const { data: newProject, error } = await sb
-          .from('projects')
-          .insert({ name, subcategory_id: subcatSelect.value })
-          .select()
-          .single();
+        const projectId = isEdit ? project.id : null;
 
-        if (error) { showToast('Ошибка: ' + error.message); saveBtn.disabled = false; return; }
+        if (isEdit) {
+          const { error } = await sb
+            .from('projects')
+            .update({ name, subcategory_id: subcatSelect.value })
+            .eq('id', projectId);
+          if (error) { showToast('Ошибка: ' + error.message); saveBtn.disabled = false; return; }
 
-        if (selectedTagIds.size) {
-          const rows = Array.from(selectedTagIds).map(tagId => ({ project_id: newProject.id, tag_id: tagId }));
-          const { error: tagError } = await sb.from('project_tags').insert(rows);
-          if (tagError) showToast('Проект создан, но теги не сохранились: ' + tagError.message);
+          // пересобираем список тегов проекта: удаляем старые связи, вставляем новые
+          await sb.from('project_tags').delete().eq('project_id', projectId);
+          if (selectedTagIds.size) {
+            const rows = Array.from(selectedTagIds).map(tagId => ({ project_id: projectId, tag_id: tagId }));
+            const { error: tagError } = await sb.from('project_tags').insert(rows);
+            if (tagError) showToast('Проект сохранён, но теги не обновились: ' + tagError.message);
+          }
+
+          form.remove();
+          projectTitleEl.textContent = name;
+          loadProjects();
+        } else {
+          const { data: newProject, error } = await sb
+            .from('projects')
+            .insert({ name, subcategory_id: subcatSelect.value })
+            .select()
+            .single();
+
+          if (error) { showToast('Ошибка: ' + error.message); saveBtn.disabled = false; return; }
+
+          if (selectedTagIds.size) {
+            const rows = Array.from(selectedTagIds).map(tagId => ({ project_id: newProject.id, tag_id: tagId }));
+            const { error: tagError } = await sb.from('project_tags').insert(rows);
+            if (tagError) showToast('Проект создан, но теги не сохранились: ' + tagError.message);
+          }
+
+          form.remove();
+          await loadProjects();
+          renderSubcategoryProjects();
         }
-
-        form.remove();
-        loadProjects();
       });
 
       return form;
     }
 
     // ---------- Открытие проекта ----------
+    let previousViewEl = null;
+
+    function hideAllTopViews() {
+      viewCategories.style.display = 'none';
+      viewSubcategories.style.display = 'none';
+      viewProjects.style.display = 'none';
+      viewProject.style.display = 'none';
+    }
+
+    async function returnToPreviousView() {
+      hideAllTopViews();
+      await loadProjects();
+      await loadPhotoMap();
+      if (previousViewEl === viewProjects) {
+        viewProjects.style.display = 'block';
+        renderSubcategoryProjects();
+      } else {
+        viewCategories.style.display = 'block';
+        renderSearchResults(searchInput.value.trim().toLowerCase());
+      }
+    }
+
     async function openProject(id, name) {
+      previousViewEl = viewProjects.style.display === 'block' ? viewProjects : viewCategories;
       currentProjectId = id;
       projectTitleEl.textContent = name;
-      viewList.style.display = 'none';
+      hideAllTopViews();
       viewProject.style.display = 'block';
       sectionFormHolder.innerHTML = '';
       await loadProjectPhotos();
@@ -535,9 +859,34 @@
 
     document.getElementById('back-btn').addEventListener('click', () => {
       currentProjectId = null;
-      viewProject.style.display = 'none';
-      viewList.style.display = 'block';
-      loadProjects();
+      returnToPreviousView();
+    });
+
+    const projectEditFormHolder = document.getElementById('project-edit-form-holder');
+
+    document.getElementById('edit-project-btn').addEventListener('click', async () => {
+      const { data: project, error } = await sb.from('projects').select('*').eq('id', currentProjectId).single();
+      if (error) { showToast('Ошибка: ' + error.message); return; }
+
+      const { data: existingTags } = await sb.from('project_tags').select('tag_id').eq('project_id', currentProjectId);
+      const existingTagIds = new Set((existingTags || []).map(t => t.tag_id));
+
+      projectEditFormHolder.innerHTML = '';
+      projectEditFormHolder.appendChild(buildProjectForm({ mode: 'edit', project, existingTagIds }));
+    });
+
+    document.getElementById('delete-project-btn').addEventListener('click', () => {
+      showConfirmModal({
+        title: 'Удалить проект?',
+        message: 'Проект "' + projectTitleEl.textContent + '" со всеми деталями, рядами и фото будет удалён без возможности восстановить.',
+        requireWord: 'Удалить',
+        onConfirm: async () => {
+          const { error } = await sb.from('projects').delete().eq('id', currentProjectId);
+          if (error) { showToast('Ошибка: ' + error.message); return; }
+          currentProjectId = null;
+          await returnToPreviousView();
+        }
+      });
     });
 
     // ---------- Детали (sections) ----------
@@ -554,16 +903,73 @@
         const block = document.createElement('div');
         block.className = 'section-block';
 
+        const header = document.createElement('div');
+        header.className = 'sec-header';
+
         const title = document.createElement('h2');
         title.textContent = sec.title;
-        block.appendChild(title);
+        header.appendChild(title);
 
-        if (sec.meta) {
-          const meta = document.createElement('div');
-          meta.className = 'sec-meta';
-          meta.textContent = sec.meta;
-          block.appendChild(meta);
-        }
+        const secEditBtn = document.createElement('button');
+        secEditBtn.className = 'icon-btn';
+        secEditBtn.textContent = '✎';
+        secEditBtn.title = 'Редактировать деталь';
+        header.appendChild(secEditBtn);
+
+        const secDelBtn = document.createElement('button');
+        secDelBtn.className = 'icon-btn';
+        secDelBtn.textContent = '🗑';
+        secDelBtn.title = 'Удалить деталь';
+        header.appendChild(secDelBtn);
+
+        block.appendChild(header);
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'sec-meta';
+        if (sec.meta) metaEl.textContent = sec.meta;
+        if (sec.meta) block.appendChild(metaEl);
+
+        const secEditFormHolder = document.createElement('div');
+        block.appendChild(secEditFormHolder);
+
+        secEditBtn.addEventListener('click', () => {
+          secEditFormHolder.innerHTML = '';
+          const form = buildForm(
+            [
+              { name: 'title', label: 'Название детали', placeholder: 'Например: Голова' },
+              { name: 'meta', label: 'Примечание (необязательно)', placeholder: 'Например: нить А, набивать по ходу' }
+            ],
+            async (values, formEl) => {
+              if (!values.title) { showToast('Введите название детали'); return; }
+              const { error } = await sb.from('sections').update({
+                title: values.title,
+                meta: values.meta || null
+              }).eq('id', sec.id);
+              if (error) { showToast('Ошибка: ' + error.message); return; }
+              formEl.remove();
+              loadSections();
+            },
+            'Сохранить'
+          );
+          // предзаполняем текущими значениями
+          const inputs = form.querySelectorAll('input');
+          inputs[0].value = sec.title;
+          inputs[1].value = sec.meta || '';
+          secEditFormHolder.appendChild(form);
+        });
+
+        secDelBtn.addEventListener('click', () => {
+          showConfirmModal({
+            title: 'Удалить деталь?',
+            message: 'Деталь "' + sec.title + '" и все её ряды будут удалены без возможности восстановить.',
+            requireWord: 'Удалить',
+            onConfirm: async () => {
+              const { error } = await sb.from('sections').delete().eq('id', sec.id);
+              if (error) { showToast('Ошибка: ' + error.message); return; }
+              loadSections();
+            }
+          });
+        });
 
         const rowsWrap = document.createElement('div');
         block.appendChild(rowsWrap);
@@ -670,10 +1076,96 @@
           if (error) showToast('Ошибка сохранения: ' + error.message);
         });
 
+        const rowActions = document.createElement('div');
+        rowActions.className = 'row-actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'icon-btn';
+        editBtn.textContent = '✎';
+        editBtn.title = 'Редактировать';
+        editBtn.addEventListener('click', () => startEditRow(r, item, textWrap, sectionId, container));
+        rowActions.appendChild(editBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'icon-btn';
+        delBtn.textContent = '🗑';
+        delBtn.title = 'Удалить';
+        delBtn.addEventListener('click', () => {
+          showConfirmModal({
+            title: 'Удалить ряд?',
+            message: 'Ряд №' + r.row_number + ' будет удалён без возможности восстановить.',
+            onConfirm: async () => {
+              const { error } = await sb.from('rows').delete().eq('id', r.id);
+              if (error) { showToast('Ошибка: ' + error.message); return; }
+              loadRows(sectionId, container);
+            }
+          });
+        });
+        rowActions.appendChild(delBtn);
+
         item.appendChild(num);
         item.appendChild(textWrap);
         item.appendChild(checkbox);
+        item.appendChild(rowActions);
         container.appendChild(item);
+      });
+    }
+
+    function startEditRow(r, item, textWrap, sectionId, container) {
+      const form = document.createElement('div');
+      form.className = 'inline-form';
+
+      const descLabel = document.createElement('label');
+      descLabel.textContent = 'Описание ряда';
+      form.appendChild(descLabel);
+      const descInput = document.createElement('input');
+      descInput.value = r.description;
+      form.appendChild(descInput);
+
+      const totalLabel = document.createElement('label');
+      totalLabel.textContent = 'Итого петель (необязательно)';
+      form.appendChild(totalLabel);
+      const totalInput = document.createElement('input');
+      totalInput.type = 'number';
+      totalInput.value = r.total_stitches || '';
+      form.appendChild(totalInput);
+
+      const noteLabel = document.createElement('label');
+      noteLabel.textContent = 'Примечание (необязательно)';
+      form.appendChild(noteLabel);
+      const noteInput = document.createElement('textarea');
+      noteInput.value = r.note || '';
+      form.appendChild(noteInput);
+
+      const actions = document.createElement('div');
+      actions.className = 'form-actions';
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Сохранить';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'secondary';
+      cancelBtn.textContent = 'Отмена';
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      form.appendChild(actions);
+
+      textWrap.style.display = 'none';
+      item.insertBefore(form, textWrap);
+
+      cancelBtn.addEventListener('click', () => {
+        form.remove();
+        textWrap.style.display = '';
+      });
+
+      saveBtn.addEventListener('click', async () => {
+        const description = descInput.value.trim();
+        if (!description) { showToast('Введите описание ряда'); return; }
+        const { error } = await sb.from('rows').update({
+          description,
+          total_stitches: totalInput.value ? parseInt(totalInput.value, 10) : null,
+          note: noteInput.value.trim() || null
+        }).eq('id', r.id);
+        if (error) { showToast('Ошибка: ' + error.message); return; }
+        loadRows(sectionId, container);
       });
     }
 
@@ -807,7 +1299,13 @@
         pdfLoadingText.textContent = 'Сохраняем в базу...';
         await saveParsedSections(result.sections);
 
+        if (result.coverImageBase64) {
+          await saveCoverImage(result.coverImageBase64);
+        }
+
         showToast('Готово! Добавлено деталей: ' + result.sections.length);
+        await loadProjectPhotos();
+        await loadPhotoMap();
         loadSections();
 
       } catch (err) {
@@ -817,6 +1315,30 @@
         pdfInput.value = '';
       }
     });
+
+    // ---------- Сохранение картинки-обложки, извлечённой из PDF ----------
+    async function saveCoverImage(base64) {
+      try {
+        const byteChars = atob(base64);
+        const byteNumbers = new Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+        const filePath = currentProjectId + '/' + Date.now() + '_cover.jpg';
+        const { error: uploadError } = await sb.storage.from('photos').upload(filePath, blob);
+        if (uploadError) return; // не критично, просто не будет обложки
+
+        const { data: urlData } = sb.storage.from('photos').getPublicUrl(filePath);
+        await sb.from('photos').insert({
+          project_id: currentProjectId,
+          url: urlData.publicUrl,
+          caption: 'Обложка из PDF'
+        });
+      } catch (e) {
+        // тихо игнорируем — обложка не обязательна для работы приложения
+      }
+    }
 
     async function saveParsedSections(sections) {
       // узнаём, сколько деталей уже есть в проекте, чтобы продолжить нумерацию position
@@ -860,11 +1382,12 @@
 
     // ---------- Старт ----------
     async function init() {
-      viewList.style.display = 'block';
       await loadCategories();
       await loadTags();
       await loadPhotoMap();
       await loadProjects();
+      renderCategoryGrid();
+      viewCategories.style.display = 'block';
     }
     init();
   </script>
