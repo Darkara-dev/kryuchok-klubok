@@ -98,32 +98,62 @@ module.exports = async (req, res) => {
     const coverImageBase64 = coverBuffer ? coverBuffer.toString('base64') : null;
 
     // --- 4. Отправляем текст нейронке через OpenRouter ---
-    const orResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        models: [
-          'z-ai/glm-5.2:free',
-          'minimax/minimax-m3:free',
-          'nvidia/nemotron-3-super-120b-a12b:free'
-        ],
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: text.slice(0, 20000) }
-        ],
-        temperature: 0.2
-      })
-    });
+    // Перебираем модели вручную со своим тайм-аутом на каждую (15 сек), чтобы одна
+    // медленная бесплатная модель не съедала весь общий лимит времени функции (60 сек)
+    const MODELS = [
+      'z-ai/glm-5.2:free',
+      'minimax/minimax-m3:free',
+      'nvidia/nemotron-3-super-120b-a12b:free'
+    ];
+    const PER_MODEL_TIMEOUT_MS = 15000;
 
-    if (!orResponse.ok) {
-      const errText = await orResponse.text();
-      return res.status(502).json({ error: 'Ошибка нейронки: ' + errText });
+    async function callModel(model) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), PER_MODEL_TIMEOUT_MS);
+      try {
+        const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              { role: 'user', content: text.slice(0, 20000) }
+            ],
+            temperature: 0.2
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return await resp.json();
+      } catch (e) {
+        clearTimeout(timeoutId);
+        throw e;
+      }
     }
 
-    const orData = await orResponse.json();
+    let orData = null;
+    let lastError = null;
+    for (const model of MODELS) {
+      try {
+        orData = await callModel(model);
+        break;
+      } catch (e) {
+        lastError = e;
+        continue; // пробуем следующую модель
+      }
+    }
+
+    if (!orData) {
+      return res.status(504).json({
+        error: 'Все бесплатные модели сейчас перегружены или не ответили вовремя. Попробуй ещё раз через минуту.'
+      });
+    }
+
     const rawContent = orData.choices?.[0]?.message?.content || '';
 
     // --- 5. Достаём JSON из ответа ---
