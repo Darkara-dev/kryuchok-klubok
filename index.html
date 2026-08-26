@@ -182,24 +182,10 @@
     font-size:13px; color:var(--text-secondary); text-align:center;
   }
   #pdf-loading.active{ display:flex; }
-  .yarn-spinner{
-    width:64px; height:64px; border-radius:50%; position:relative; overflow:hidden;
-    background:radial-gradient(circle at 36% 32%, #D391A4, var(--accent) 55%, #7C3E51);
-    box-shadow:0 8px 22px rgba(168,83,106,0.38);
+  .yarn-spinner-svg{
+    width:64px; height:64px; flex-shrink:0;
+    filter:drop-shadow(0 8px 14px rgba(168,83,106,0.4));
     animation:yarn-spin 2.4s linear infinite;
-    flex-shrink:0;
-  }
-  .yarn-spinner::before, .yarn-spinner::after{
-    content:''; position:absolute; top:50%; left:50%;
-    width:92%; height:1.5px; background:rgba(255,255,255,0.32);
-    transform-origin:left center;
-  }
-  .yarn-spinner::before{ transform:rotate(20deg) translateY(-50%); }
-  .yarn-spinner::after{ transform:rotate(100deg) translateY(-50%); }
-  .yarn-spinner-line3{
-    position:absolute; top:50%; left:50%; width:92%; height:1.5px;
-    background:rgba(255,255,255,0.32); transform-origin:left center;
-    transform:rotate(160deg) translateY(-50%);
   }
   @keyframes yarn-spin{ to{ transform:rotate(360deg); } }
   #toast{
@@ -218,12 +204,12 @@
     <button id="add-project-home-btn">+ Новый проект</button>
     <div id="project-form-holder-home"></div>
     <div id="search-results" class="card-grid"></div>
+    <h2 style="margin:22px 0 0;" id="category-grid-title">Категории</h2>
+    <div id="category-grid" class="card-grid"></div>
     <div id="recent-projects-block" style="display:none; margin-top:22px;">
       <h2 style="margin-bottom:10px;">Недавние проекты</h2>
       <div id="recent-projects-list"></div>
     </div>
-    <h2 style="margin:22px 0 0;" id="category-grid-title">Категории</h2>
-    <div id="category-grid" class="card-grid"></div>
   </div>
 
   <div id="view-subcategories">
@@ -257,7 +243,24 @@
     <button id="add-section-btn" class="secondary">Добавить деталь вручную</button>
     <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
     <div id="pdf-loading">
-      <div class="yarn-spinner"><div class="yarn-spinner-line3"></div></div>
+      <svg class="yarn-spinner-svg" viewBox="0 0 64 64">
+        <defs>
+          <radialGradient id="yarnGrad" cx="36%" cy="32%" r="72%">
+            <stop offset="0%" stop-color="#D391A4"/>
+            <stop offset="55%" stop-color="#A8536A"/>
+            <stop offset="100%" stop-color="#7C3E51"/>
+          </radialGradient>
+          <clipPath id="yarnClip"><circle cx="32" cy="32" r="28"/></clipPath>
+        </defs>
+        <circle cx="32" cy="32" r="28" fill="url(#yarnGrad)"/>
+        <g clip-path="url(#yarnClip)" stroke="rgba(255,255,255,0.4)" stroke-width="1.6" fill="none">
+          <ellipse cx="32" cy="32" rx="28" ry="10" transform="rotate(10 32 32)"/>
+          <ellipse cx="32" cy="32" rx="28" ry="10" transform="rotate(70 32 32)"/>
+          <ellipse cx="32" cy="32" rx="28" ry="10" transform="rotate(130 32 32)"/>
+          <ellipse cx="32" cy="32" rx="10" ry="28" transform="rotate(-15 32 32)"/>
+        </g>
+        <path d="M 56 38 Q 62 44 59 52" stroke="#7C3E51" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      </svg>
       <span id="pdf-loading-text">Разбираем схему...</span>
     </div>
     <div id="section-form-holder"></div>
