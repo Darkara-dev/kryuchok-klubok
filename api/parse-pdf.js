@@ -36,15 +36,19 @@ const SYSTEM_PROMPT = `Ты помощник, который разбирает 
 }`;
 
 const zlib = require('zlib');
+const jpeg = require('jpeg-js');
 
 // --- Извлекаем лучшую обложку из PDF (для карточки проекта) ---
 // Логика:
-//  1. Ищем все встроенные JPEG-картинки (DCTDecode), включая случай, когда JPEG
+//  1. Сначала ищем встроенные JPEG-картинки (DCTDecode), включая случай, когда JPEG
 //     дополнительно "обёрнут" в FlateDecode (двойное сжатие — так делают некоторые
 //     конструкторы PDF вроде Canva)
-//  2. Пропускаем картинки, чьи пропорции совпадают с пропорциями самой страницы —
+//  2. Если JPEG не нашлось — ищем "сырые" несжатые картинки (несколько разных
+//     кодировок potoка: FlateDecode, часто вместе с ASCII85Decode) и сами кодируем
+//     их в JPEG — так делают некоторые генераторы PDF (например экспорт из Word/Docs)
+//  3. Пропускаем картинки, чьи пропорции совпадают с пропорциями самой страницы —
 //     это почти наверняка декоративный фон на всю страницу, а не фото изделия
-//  3. Из оставшихся берём самую крупную по площади — обычно это и есть основное фото
+//  4. Из оставшихся берём самую крупную по площади — обычно это и есть основное фото
 function getFilterList(filter) {
   if (!filter) return [];
   if (filter.constructor && filter.constructor.name === 'PDFName') return [filter.toString()];
@@ -64,6 +68,70 @@ function decodeToJpegBytes(rawContents, filters) {
   return data;
 }
 
+// Adobe-вариант ASCII85 (используется в PDF), в Node нет встроенной поддержки
+function decodeAscii85(buf) {
+  let str = buf.toString('latin1').replace(/<~|~>/g, '').replace(/\s+/g, '');
+  const out = [];
+  let i = 0;
+  while (i < str.length) {
+    if (str[i] === 'z') { out.push(0, 0, 0, 0); i++; continue; }
+    let chunk = str.slice(i, i + 5);
+    const chunkLen = chunk.length;
+    while (chunk.length < 5) chunk += 'u';
+    let value = 0;
+    for (let j = 0; j < 5; j++) value = value * 85 + (chunk.charCodeAt(j) - 33);
+    const bytes = [(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff];
+    out.push(...bytes.slice(0, chunkLen - 1));
+    i += 5;
+  }
+  return Buffer.from(out);
+}
+
+// Раскодировываем "сырую" картинку (не JPEG) до плоских пикселей и сами упаковываем в JPEG
+function decodeRawImageToJpeg(rawContents, filters, width, height, colorSpace, bitsPerComponent) {
+  let data = Buffer.from(rawContents);
+  for (const f of filters) {
+    if (f === '/ASCII85Decode') data = decodeAscii85(data);
+    else if (f === '/FlateDecode') data = zlib.inflateSync(data);
+    else if (f === '/ASCIIHexDecode') data = Buffer.from(data.toString('latin1').replace(/>/g, ''), 'hex');
+    else return null; // незнакомый фильтр (например реальный DCTDecode, JPXDecode) — не наш случай
+  }
+
+  if (bitsPerComponent !== 8) return null; // поддерживаем только самый частый случай — 8 бит на канал
+
+  let channels;
+  if (colorSpace === '/DeviceRGB') channels = 3;
+  else if (colorSpace === '/DeviceGray') channels = 1;
+  else if (colorSpace === '/DeviceCMYK') channels = 4;
+  else return null;
+
+  const expected = width * height * channels;
+  if (data.length < expected) return null;
+
+  const rgba = Buffer.alloc(width * height * 4);
+  for (let px = 0; px < width * height; px++) {
+    const srcOff = px * channels;
+    const dstOff = px * 4;
+    if (channels === 3) {
+      rgba[dstOff] = data[srcOff];
+      rgba[dstOff + 1] = data[srcOff + 1];
+      rgba[dstOff + 2] = data[srcOff + 2];
+    } else if (channels === 1) {
+      rgba[dstOff] = rgba[dstOff + 1] = rgba[dstOff + 2] = data[srcOff];
+    } else if (channels === 4) {
+      // грубое приближение CMYK -> RGB
+      const c = data[srcOff] / 255, m = data[srcOff + 1] / 255, y = data[srcOff + 2] / 255, k = data[srcOff + 3] / 255;
+      rgba[dstOff] = 255 * (1 - c) * (1 - k);
+      rgba[dstOff + 1] = 255 * (1 - m) * (1 - k);
+      rgba[dstOff + 2] = 255 * (1 - y) * (1 - k);
+    }
+    rgba[dstOff + 3] = 255;
+  }
+
+  const encoded = jpeg.encode({ data: rgba, width, height }, 85);
+  return Buffer.from(encoded.data);
+}
+
 async function extractBestCover(pdfBytes) {
   try {
     const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
@@ -72,16 +140,17 @@ async function extractBestCover(pdfBytes) {
     const pageRatio = pageW / pageH;
 
     const indirectObjects = pdfDoc.context.enumerateIndirectObjects();
-    const candidates = [];
+    const jpegCandidates = [];
+    const rawCandidates = [];
 
     for (const [, obj] of indirectObjects) {
       if (!(obj instanceof PDFRawStream)) continue;
       const dict = obj.dict;
       const subtype = dict.get(PDFName.of('Subtype'));
-      const filters = getFilterList(dict.get(PDFName.of('Filter')));
       const isImage = subtype && subtype.toString() === '/Image';
-      if (!isImage || !filters.includes('/DCTDecode')) continue;
+      if (!isImage) continue;
 
+      const filters = getFilterList(dict.get(PDFName.of('Filter')));
       const widthObj = dict.get(PDFName.of('Width'));
       const heightObj = dict.get(PDFName.of('Height'));
       const w = widthObj ? Number(widthObj.numberValue ?? widthObj.value ?? widthObj.toString()) : 0;
@@ -90,17 +159,39 @@ async function extractBestCover(pdfBytes) {
 
       const ratio = w / h;
       const looksLikePageBackground = Math.abs(ratio - pageRatio) < 0.08;
+      const area = w * h;
 
-      candidates.push({ obj, filters, area: w * h, looksLikePageBackground });
+      if (filters.includes('/DCTDecode')) {
+        jpegCandidates.push({ obj, filters, area, looksLikePageBackground });
+      } else {
+        const csObj = dict.get(PDFName.of('ColorSpace'));
+        const bpcObj = dict.get(PDFName.of('BitsPerComponent'));
+        const colorSpace = csObj ? csObj.toString() : null;
+        const bpc = bpcObj ? Number(bpcObj.numberValue ?? bpcObj.value ?? bpcObj.toString()) : null;
+        rawCandidates.push({ obj, filters, area, looksLikePageBackground, w, h, colorSpace, bpc });
+      }
     }
 
-    if (!candidates.length) return null;
+    // Сначала пробуем найти нормальный JPEG
+    if (jpegCandidates.length) {
+      const nonBg = jpegCandidates.filter(c => !c.looksLikePageBackground);
+      const pool = nonBg.length ? nonBg : jpegCandidates;
+      pool.sort((a, b) => b.area - a.area);
+      return decodeToJpegBytes(pool[0].obj.contents, pool[0].filters);
+    }
 
-    const nonBackground = candidates.filter(c => !c.looksLikePageBackground);
-    const pool = nonBackground.length ? nonBackground : candidates;
-    pool.sort((a, b) => b.area - a.area);
+    // JPEG не нашли — пробуем "сырые" картинки, перебирая от самой крупной,
+    // пока одна из них успешно не раскодируется
+    if (rawCandidates.length) {
+      const nonBg = rawCandidates.filter(c => !c.looksLikePageBackground);
+      const pool = (nonBg.length ? nonBg : rawCandidates).slice().sort((a, b) => b.area - a.area);
+      for (const cand of pool) {
+        const result = decodeRawImageToJpeg(cand.obj.contents, cand.filters, cand.w, cand.h, cand.colorSpace, cand.bpc);
+        if (result) return result;
+      }
+    }
 
-    return decodeToJpegBytes(pool[0].obj.contents, pool[0].filters);
+    return null;
   } catch (e) {
     return null; // если PDF повреждён/зашифрован для pdf-lib — просто не даём обложку, не валим весь запрос
   }
