@@ -265,6 +265,23 @@
     }
     const currentUserId = getUserId();
 
+    // ---------- Запись в базу только через сервер (у клиента теперь нет прав на запись) ----------
+    // operation: 'insert' | 'update' | 'upsert' | 'delete'
+    // match: обязателен для update/delete — объект вида {id: '...'} (условие WHERE)
+    // select: true (вернуть все поля) | 'id, name' (конкретные поля) | не указывать (не нужен результат)
+    async function dbWrite(table, operation, payload, match, select) {
+      const resp = await fetch('/api/db-write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table, operation, payload, match, select })
+      });
+      const result = await resp.json();
+      if (!resp.ok || result.error) {
+        throw new Error(result.error || 'Неизвестная ошибка записи');
+      }
+      return result.data;
+    }
+
     const SUPABASE_URL = 'https://vcsgpauejnqznygdqxyo.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_MRJ8BbTV9cvAnygOzySE7A_k29SDSuD';
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1007,8 +1024,11 @@
         const catName = newCatNameInput.value.trim();
         if (!catName) { showToast('Введите название категории'); return; }
         const icon = newCatIconInput.value.trim() || null;
-        const { data, error } = await sb.from('categories').insert({ name: catName, icon }).select().single();
-        if (error) { showToast('Ошибка: ' + error.message); return; }
+        let data;
+        try {
+          const rows = await dbWrite('categories', 'insert', { name: catName, icon }, null, true);
+          data = rows[0];
+        } catch (e) { showToast('Ошибка: ' + e.message); return; }
         allCategories.push(data);
         newCatForm.style.display = 'none';
         newCatNameInput.value = '';
@@ -1071,12 +1091,15 @@
         if (!subcatName) { showToast('Введите название подкатегории'); return; }
         if (!catSelect.value || catSelect.value === '__new_category__') { showToast('Сначала выберите категорию'); return; }
         const icon = newSubcatIconInput.value.trim() || null;
-        const { data, error } = await sb.from('categories').insert({
-          name: subcatName,
-          icon,
-          parent_id: catSelect.value
-        }).select().single();
-        if (error) { showToast('Ошибка: ' + error.message); return; }
+        let data;
+        try {
+          const rowsRes = await dbWrite('categories', 'insert', {
+            name: subcatName,
+            icon,
+            parent_id: catSelect.value
+          }, null, true);
+          data = rowsRes[0];
+        } catch (e) { showToast('Ошибка: ' + e.message); return; }
         allCategories.push(data);
         newSubcatForm.style.display = 'none';
         newSubcatNameInput.value = '';
@@ -1219,8 +1242,11 @@
       newTagBtn.addEventListener('click', async () => {
         const tagName = newTagInput.value.trim();
         if (!tagName) return;
-        const { data, error } = await sb.from('tags').insert({ name: tagName }).select().single();
-        if (error) { showToast('Ошибка: ' + error.message); return; }
+        let data;
+        try {
+          const rowsRes = await dbWrite('tags', 'insert', { name: tagName }, null, true);
+          data = rowsRes[0];
+        } catch (e) { showToast('Ошибка: ' + e.message); return; }
         allTags.push(data);
         selectedTagIds.add(data.id);
         renderTagPills();
@@ -1257,36 +1283,34 @@
         const projectId = isEdit ? project.id : null;
 
         if (isEdit) {
-          const { error } = await sb
-            .from('projects')
-            .update({ name, subcategory_id: subcatSelect.value })
-            .eq('id', projectId);
-          if (error) { showToast('Ошибка: ' + error.message); saveBtn.disabled = false; return; }
+          try {
+            await dbWrite('projects', 'update', { name, subcategory_id: subcatSelect.value }, { id: projectId });
+          } catch (e) { showToast('Ошибка: ' + e.message); saveBtn.disabled = false; return; }
 
           // пересобираем список тегов проекта: удаляем старые связи, вставляем новые
-          await sb.from('project_tags').delete().eq('project_id', projectId);
-          if (selectedTagIds.size) {
-            const rows = Array.from(selectedTagIds).map(tagId => ({ project_id: projectId, tag_id: tagId }));
-            const { error: tagError } = await sb.from('project_tags').insert(rows);
-            if (tagError) showToast('Проект сохранён, но теги не обновились: ' + tagError.message);
-          }
+          try {
+            await dbWrite('project_tags', 'delete', null, { project_id: projectId });
+            if (selectedTagIds.size) {
+              const tagRows = Array.from(selectedTagIds).map(tagId => ({ project_id: projectId, tag_id: tagId }));
+              await dbWrite('project_tags', 'insert', tagRows);
+            }
+          } catch (e) { showToast('Проект сохранён, но теги не обновились: ' + e.message); }
 
           form.remove();
           projectTitleEl.textContent = name;
           loadProjects();
         } else {
-          const { data: newProject, error } = await sb
-            .from('projects')
-            .insert({ name, subcategory_id: subcatSelect.value })
-            .select()
-            .single();
-
-          if (error) { showToast('Ошибка: ' + error.message); saveBtn.disabled = false; return; }
+          let newProject;
+          try {
+            const rowsRes = await dbWrite('projects', 'insert', { name, subcategory_id: subcatSelect.value }, null, true);
+            newProject = rowsRes[0];
+          } catch (e) { showToast('Ошибка: ' + e.message); saveBtn.disabled = false; return; }
 
           if (selectedTagIds.size) {
-            const rows = Array.from(selectedTagIds).map(tagId => ({ project_id: newProject.id, tag_id: tagId }));
-            const { error: tagError } = await sb.from('project_tags').insert(rows);
-            if (tagError) showToast('Проект создан, но теги не сохранились: ' + tagError.message);
+            try {
+              const tagRows = Array.from(selectedTagIds).map(tagId => ({ project_id: newProject.id, tag_id: tagId }));
+              await dbWrite('project_tags', 'insert', tagRows);
+            } catch (e) { showToast('Проект создан, но теги не сохранились: ' + e.message); }
           }
 
           form.remove();
@@ -1389,8 +1413,9 @@
         message: 'Проект "' + projectTitleEl.textContent + '" со всеми деталями, рядами и фото будет удалён без возможности восстановить.',
         requireWord: 'Удалить',
         onConfirm: async () => {
-          const { error } = await sb.from('projects').delete().eq('id', currentProjectId);
-          if (error) { showToast('Ошибка: ' + error.message); return; }
+          try {
+            await dbWrite('projects', 'delete', null, { id: currentProjectId });
+          } catch (e) { showToast('Ошибка: ' + e.message); return; }
           currentProjectId = null;
           await returnToPreviousView();
         }
@@ -1483,11 +1508,12 @@
             ],
             async (values, formEl) => {
               if (!values.title) { showToast('Введите название детали'); return; }
-              const { error } = await sb.from('sections').update({
-                title: values.title,
-                meta: values.meta || null
-              }).eq('id', sec.id);
-              if (error) { showToast('Ошибка: ' + error.message); return; }
+              try {
+                await dbWrite('sections', 'update', {
+                  title: values.title,
+                  meta: values.meta || null
+                }, { id: sec.id });
+              } catch (e) { showToast('Ошибка: ' + e.message); return; }
               formEl.remove();
               loadSections();
             },
@@ -1506,8 +1532,9 @@
             message: 'Деталь "' + sec.title + '" и все её ряды будут удалены без возможности восстановить.',
             requireWord: 'Удалить',
             onConfirm: async () => {
-              const { error } = await sb.from('sections').delete().eq('id', sec.id);
-              if (error) { showToast('Ошибка: ' + error.message); return; }
+              try {
+                await dbWrite('sections', 'delete', null, { id: sec.id });
+              } catch (e) { showToast('Ошибка: ' + e.message); return; }
               loadSections();
             }
           });
@@ -1557,12 +1584,13 @@
           const willBeCollapsed = partBody.style.display !== 'none';
           partBody.style.display = willBeCollapsed ? 'none' : '';
           chevron.style.transform = willBeCollapsed ? 'rotate(-90deg)' : '';
-          const { error } = await sb.from('section_collapse_state').upsert({
-            section_id: sec.id,
-            telegram_user_id: currentUserId,
-            collapsed: willBeCollapsed
-          });
-          if (error) showToast('Ошибка сохранения: ' + error.message);
+          try {
+            await dbWrite('section_collapse_state', 'upsert', {
+              section_id: sec.id,
+              telegram_user_id: currentUserId,
+              collapsed: willBeCollapsed
+            });
+          } catch (e) { showToast('Ошибка сохранения: ' + e.message); }
         });
 
         sectionListEl.appendChild(block);
@@ -1585,13 +1613,14 @@
             .select('*', { count: 'exact', head: true })
             .eq('project_id', currentProjectId);
 
-          const { error } = await sb.from('sections').insert({
-            project_id: currentProjectId,
-            title: values.title,
-            meta: values.meta || null,
-            position: count || 0
-          });
-          if (error) { showToast('Ошибка: ' + error.message); return; }
+          try {
+            await dbWrite('sections', 'insert', {
+              project_id: currentProjectId,
+              title: values.title,
+              meta: values.meta || null,
+              position: count || 0
+            });
+          } catch (e) { showToast('Ошибка: ' + e.message); return; }
           formEl.remove();
           loadSections();
         },
@@ -1667,10 +1696,11 @@
               ref.item.classList.add('done');
             });
             if (toCheck.length) {
-              const { error } = await sb.from('row_progress').upsert(
-                toCheck.map(ref => ({ row_id: ref.rowId, telegram_user_id: currentUserId, checked: true }))
-              );
-              if (error) showToast('Ошибка сохранения: ' + error.message);
+              try {
+                await dbWrite('row_progress', 'upsert',
+                  toCheck.map(ref => ({ row_id: ref.rowId, telegram_user_id: currentUserId, checked: true }))
+                );
+              } catch (e) { showToast('Ошибка сохранения: ' + e.message); }
             }
           } else {
             // снимаем этот ряд и все ОТМЕЧЕННЫЕ ряды ниже него в этой детали
@@ -1681,11 +1711,12 @@
               ref.item.classList.remove('done');
             });
             if (toUncheck.length) {
-              const { error } = await sb.from('row_progress')
-                .delete()
-                .eq('telegram_user_id', currentUserId)
-                .in('row_id', toUncheck.map(ref => ref.rowId));
-              if (error) showToast('Ошибка сохранения: ' + error.message);
+              try {
+                await dbWrite('row_progress', 'delete', null, {
+                  telegram_user_id: currentUserId,
+                  row_id: toUncheck.map(ref => ref.rowId)
+                });
+              } catch (e) { showToast('Ошибка сохранения: ' + e.message); }
             }
           }
           updateBadge();
@@ -1710,8 +1741,9 @@
             title: 'Удалить ряд?',
             message: 'Ряд №' + r.row_number + ' будет удалён без возможности восстановить.',
             onConfirm: async () => {
-              const { error } = await sb.from('rows').delete().eq('id', r.id);
-              if (error) { showToast('Ошибка: ' + error.message); return; }
+              try {
+                await dbWrite('rows', 'delete', null, { id: r.id });
+              } catch (e) { showToast('Ошибка: ' + e.message); return; }
               loadRows(sectionId, container);
             }
           });
@@ -1774,12 +1806,13 @@
       saveBtn.addEventListener('click', async () => {
         const description = descInput.value.trim();
         if (!description) { showToast('Введите описание ряда'); return; }
-        const { error } = await sb.from('rows').update({
-          description,
-          total_stitches: totalInput.value ? parseInt(totalInput.value, 10) : null,
-          note: noteInput.value.trim() || null
-        }).eq('id', r.id);
-        if (error) { showToast('Ошибка: ' + error.message); return; }
+        try {
+          await dbWrite('rows', 'update', {
+            description,
+            total_stitches: totalInput.value ? parseInt(totalInput.value, 10) : null,
+            note: noteInput.value.trim() || null
+          }, { id: r.id });
+        } catch (e) { showToast('Ошибка: ' + e.message); return; }
         loadRows(sectionId, container);
       });
     }
@@ -1792,15 +1825,16 @@
 
       const nextNumber = (count || 0) + 1;
 
-      const { error } = await sb.from('rows').insert({
-        section_id: sectionId,
-        row_number: nextNumber,
-        description: values.description,
-        note: values.note || null,
-        total_stitches: values.total ? parseInt(values.total, 10) : null,
-        position: count || 0
-      });
-      if (error) { showToast('Ошибка: ' + error.message); return; }
+      try {
+        await dbWrite('rows', 'insert', {
+          section_id: sectionId,
+          row_number: nextNumber,
+          description: values.description,
+          note: values.note || null,
+          total_stitches: values.total ? parseInt(values.total, 10) : null,
+          position: count || 0
+        });
+      } catch (e) { showToast('Ошибка: ' + e.message); return; }
       loadRows(sectionId, container);
     }
 
@@ -1832,11 +1866,12 @@
 
         const { data: urlData } = sb.storage.from('photos').getPublicUrl(filePath);
 
-        const { error: insertError } = await sb.from('photos').insert({
-          project_id: currentProjectId,
-          url: urlData.publicUrl
-        });
-        if (insertError) { showToast('Ошибка сохранения фото: ' + insertError.message); return; }
+        try {
+          await dbWrite('photos', 'insert', {
+            project_id: currentProjectId,
+            url: urlData.publicUrl
+          });
+        } catch (e) { showToast('Ошибка сохранения фото: ' + e.message); return; }
 
         showToast('Фото добавлено!');
         await loadProjectPhotos();
@@ -1976,7 +2011,7 @@
         if (uploadError) return; // не критично, просто не будет обложки
 
         const { data: urlData } = sb.storage.from('photos').getPublicUrl(filePath);
-        await sb.from('photos').insert({
+        await dbWrite('photos', 'insert', {
           project_id: currentProjectId,
           url: urlData.publicUrl,
           caption: 'Обложка из PDF'
@@ -1996,18 +2031,16 @@
       let sectionPosition = existingSectionsCount || 0;
 
       for (const sec of sections) {
-        const { data: newSection, error: secError } = await sb
-          .from('sections')
-          .insert({
+        let newSection;
+        try {
+          const rowsRes = await dbWrite('sections', 'insert', {
             project_id: currentProjectId,
             title: sec.title,
             meta: sec.meta || null,
             position: sectionPosition
-          })
-          .select()
-          .single();
-
-        if (secError) { showToast('Ошибка сохранения детали: ' + secError.message); continue; }
+          }, null, true);
+          newSection = rowsRes[0];
+        } catch (e) { showToast('Ошибка сохранения детали: ' + e.message); continue; }
         sectionPosition++;
 
         // Разворачиваем компактные повторяющиеся ряды (repeat) в отдельные строки базы —
@@ -2031,8 +2064,9 @@
         });
 
         if (rowsToInsert.length) {
-          const { error: rowsError } = await sb.from('rows').insert(rowsToInsert);
-          if (rowsError) showToast('Ошибка сохранения рядов: ' + rowsError.message);
+          try {
+            await dbWrite('rows', 'insert', rowsToInsert);
+          } catch (e) { showToast('Ошибка сохранения рядов: ' + e.message); }
         }
       }
     }
