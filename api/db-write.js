@@ -9,10 +9,39 @@ const ALLOWED_TABLES = new Set([
 ]);
 const ALLOWED_OPS = new Set(['insert', 'update', 'upsert', 'delete']);
 
+// Удаление проекта и всего, что внутри него (детали, ряды), разрешено только
+// автору проекта или админу — проверяем это здесь, а не только в интерфейсе,
+// иначе запрет можно было бы обойти прямым запросом к этому же API
+const OWNERSHIP_PROTECTED_TABLES = new Set(['projects', 'sections', 'rows']);
+const ADMIN_USER_ID = '174867272';
+
 const supabase = createClient(
   'https://vcsgpauejnqznygdqxyo.supabase.co',
   process.env.SUPABASE_SECRET_KEY
 );
+
+// Находит telegram_user_id автора проекта, к которому относится удаляемая запись
+async function resolveProjectOwner(table, match) {
+  if (table === 'projects') {
+    const { data } = await supabase.from('projects').select('created_by').eq('id', match.id).single();
+    return data ? data.created_by : null;
+  }
+  if (table === 'sections') {
+    const { data: sec } = await supabase.from('sections').select('project_id').eq('id', match.id).single();
+    if (!sec) return null;
+    const { data: proj } = await supabase.from('projects').select('created_by').eq('id', sec.project_id).single();
+    return proj ? proj.created_by : null;
+  }
+  if (table === 'rows') {
+    const { data: row } = await supabase.from('rows').select('section_id').eq('id', match.id).single();
+    if (!row) return null;
+    const { data: sec } = await supabase.from('sections').select('project_id').eq('id', row.section_id).single();
+    if (!sec) return null;
+    const { data: proj } = await supabase.from('projects').select('created_by').eq('id', sec.project_id).single();
+    return proj ? proj.created_by : null;
+  }
+  return null;
+}
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -20,13 +49,29 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { table, operation, payload, match, select } = req.body;
+    const { table, operation, payload, match, select, requesterId } = req.body;
 
     if (!ALLOWED_TABLES.has(table)) {
       return res.status(400).json({ error: 'Недопустимая таблица' });
     }
     if (!ALLOWED_OPS.has(operation)) {
       return res.status(400).json({ error: 'Недопустимая операция' });
+    }
+
+    // Проверка прав на удаление проекта/детали/ряда
+    if (operation === 'delete' && OWNERSHIP_PROTECTED_TABLES.has(table)) {
+      if (!requesterId) {
+        return res.status(400).json({ error: 'Не удалось определить пользователя' });
+      }
+      if (requesterId !== ADMIN_USER_ID) {
+        if (!match || !match.id) {
+          return res.status(400).json({ error: 'Не указано, что удалять' });
+        }
+        const ownerId = await resolveProjectOwner(table, match);
+        if (ownerId !== requesterId) {
+          return res.status(403).json({ error: 'Удалить может только автор проекта или администратор' });
+        }
+      }
     }
 
     let query = supabase.from(table);
