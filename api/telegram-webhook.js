@@ -22,7 +22,7 @@ const WELCOME_TEXT = `🧶 <b>Привет! Я — Крючок и клубок<
 Готова начать? Жми кнопку ниже 👇`;
 
 async function sendMessage(chatId, text) {
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+  const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -36,6 +36,11 @@ async function sendMessage(chatId, text) {
       }
     })
   });
+  const result = await resp.json();
+  if (!result.ok) {
+    console.error('Telegram sendMessage failed:', JSON.stringify(result));
+  }
+  return result;
 }
 
 module.exports = async (req, res) => {
@@ -44,7 +49,13 @@ module.exports = async (req, res) => {
   }
 
   try {
+    if (!BOT_TOKEN) {
+      console.error('TELEGRAM_BOT_TOKEN не задан в переменных окружения Vercel');
+      return res.status(200).json({ ok: true });
+    }
+
     const update = req.body;
+    console.log('Получен апдейт от Telegram:', JSON.stringify(update));
     const message = update.message;
 
     if (message && message.chat && message.chat.id) {
