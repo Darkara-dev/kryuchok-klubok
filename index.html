@@ -265,6 +265,13 @@
     }
     const currentUserId = getUserId();
 
+    // Твой личный Telegram ID — админ может удалить что угодно, независимо от того, кто автор
+    const ADMIN_USER_ID = '174867272';
+
+    function canDelete(authorId) {
+      return currentUserId === ADMIN_USER_ID || (!!authorId && currentUserId === authorId);
+    }
+
     // ---------- Запись в базу только через сервер (у клиента теперь нет прав на запись) ----------
     // operation: 'insert' | 'update' | 'upsert' | 'delete'
     // match: обязателен для update/delete — объект вида {id: '...'} (условие WHERE)
@@ -273,7 +280,7 @@
       const resp = await fetch('/api/db-write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table, operation, payload, match, select })
+        body: JSON.stringify({ table, operation, payload, match, select, requesterId: currentUserId })
       });
       const result = await resp.json();
       if (!resp.ok || result.error) {
@@ -310,6 +317,7 @@
     const searchInput = document.getElementById('search-input');
 
     let currentProjectId = null;
+    let currentProjectAuthor = null; // telegram_user_id автора открытого сейчас проекта
     let currentCategoryId = null;
     let currentSubcategoryId = null;
     let allCategories = [];
@@ -1302,7 +1310,7 @@
         } else {
           let newProject;
           try {
-            const rowsRes = await dbWrite('projects', 'insert', { name, subcategory_id: subcatSelect.value }, null, true);
+            const rowsRes = await dbWrite('projects', 'insert', { name, subcategory_id: subcatSelect.value, created_by: currentUserId }, null, true);
             newProject = rowsRes[0];
           } catch (e) { showToast('Ошибка: ' + e.message); saveBtn.disabled = false; return; }
 
@@ -1377,6 +1385,9 @@
       projectTitleEl.textContent = name;
 
       const cached = projectsCache.find(p => p.id === id);
+      currentProjectAuthor = cached ? cached.created_by : null;
+      document.getElementById('delete-project-btn').style.display = canDelete(currentProjectAuthor) ? '' : 'none';
+
       const colors = cached ? getColorForSubcategory(cached.subcategory_id) : FALLBACK_COLOR;
       renderAppHeader(colors.main, name, null, () => {
         document.getElementById('back-btn').click();
@@ -1487,6 +1498,7 @@
         secDelBtn.className = 'icon-btn';
         secDelBtn.textContent = '🗑';
         secDelBtn.title = 'Удалить деталь';
+        if (!canDelete(currentProjectAuthor)) secDelBtn.style.display = 'none';
         header.appendChild(secDelBtn);
 
         block.appendChild(header);
@@ -1736,6 +1748,7 @@
         delBtn.className = 'icon-btn';
         delBtn.textContent = '🗑';
         delBtn.title = 'Удалить';
+        if (!canDelete(currentProjectAuthor)) delBtn.style.display = 'none';
         delBtn.addEventListener('click', () => {
           showConfirmModal({
             title: 'Удалить ряд?',
