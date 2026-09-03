@@ -5,6 +5,7 @@
   "dependencies": {
     "pdf-parse": "^1.1.1",
     "pdf-lib": "^1.17.1",
-    "jpeg-js": "^0.4.4"
+    "jpeg-js": "^0.4.4",
+    "@supabase/supabase-js": "^2.45.0"
   }
 }
