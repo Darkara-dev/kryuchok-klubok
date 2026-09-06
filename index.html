@@ -2056,24 +2056,37 @@
         } catch (e) { showToast('Ошибка сохранения детали: ' + e.message); continue; }
         sectionPosition++;
 
-        // Разворачиваем компактные повторяющиеся ряды (repeat) в отдельные строки базы —
-        // нейронка присылает их "свёрнутыми" (repeat: 4), чтобы не тратить время на
-        // выписывание одинаковых рядов много раз подряд
+        // Разворачиваем компактные повторяющиеся ряды в отдельные строки базы —
+        // нейронка присылает их "свёрнутыми", чтобы не тратить время на выписывание
+        // одинаковых рядов много раз подряд. Два формата:
+        //  - { repeat: N } — один и тот же ряд повторяется N раз подряд
+        //  - { groupRepeat: N, rows: [...] } — НЕСКОЛЬКО рядов чередуются между собой N раз
+        //    (например ряд A, ряд B, ряд A, ряд B, ... — так вяжется подкладка шляпки)
         const rowsToInsert = [];
         let rowNumber = 1;
+
+        function pushRow(r) {
+          rowsToInsert.push({
+            section_id: newSection.id,
+            row_number: rowNumber,
+            description: r.description,
+            note: r.note || null,
+            total_stitches: r.total || null,
+            position: rowNumber - 1
+          });
+          rowNumber++;
+        }
+
         (sec.rows || []).forEach(r => {
-          const times = r.repeat && r.repeat > 1 ? r.repeat : 1;
-          for (let i = 0; i < times; i++) {
-            rowsToInsert.push({
-              section_id: newSection.id,
-              row_number: rowNumber,
-              description: r.description,
-              note: r.note || null,
-              total_stitches: r.total || null,
-              position: rowNumber - 1
-            });
-            rowNumber++;
+          if (r.groupRepeat && Array.isArray(r.rows)) {
+            const times = r.groupRepeat > 0 ? r.groupRepeat : 1;
+            for (let i = 0; i < times; i++) {
+              r.rows.forEach(inner => pushRow(inner));
+            }
+            return;
           }
+          const times = r.repeat && r.repeat > 1 ? r.repeat : 1;
+          for (let i = 0; i < times; i++) pushRow(r);
         });
 
         if (rowsToInsert.length) {
