@@ -1471,6 +1471,7 @@
       let sectionIndex = 0;
       for (const sec of sections) {
         const isFirstSection = sectionIndex === 0;
+        const myIndex = sectionIndex; // фиксируем именно для этой детали — иначе к моменту клика значение "убежит" вперёд
         sectionIndex++;
 
         const block = document.createElement('div');
@@ -1506,15 +1507,15 @@
         moveUpBtn.textContent = '↑';
         moveUpBtn.title = 'Переставить выше';
         if (isFirstSection) moveUpBtn.style.visibility = 'hidden';
-        moveUpBtn.addEventListener('click', () => moveSection(sections, sectionIndex - 1, -1));
+        moveUpBtn.addEventListener('click', () => moveSection(sections, myIndex, -1));
         header.appendChild(moveUpBtn);
 
         const moveDownBtn = document.createElement('button');
         moveDownBtn.className = 'icon-btn';
         moveDownBtn.textContent = '↓';
         moveDownBtn.title = 'Переставить ниже';
-        if (sectionIndex === sections.length) moveDownBtn.style.visibility = 'hidden';
-        moveDownBtn.addEventListener('click', () => moveSection(sections, sectionIndex - 1, 1));
+        if (myIndex === sections.length - 1) moveDownBtn.style.visibility = 'hidden';
+        moveDownBtn.addEventListener('click', () => moveSection(sections, myIndex, 1));
         header.appendChild(moveDownBtn);
 
         const secEditBtn = document.createElement('button');
