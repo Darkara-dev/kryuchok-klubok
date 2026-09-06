@@ -2094,6 +2094,7 @@
         //    (например ряд A, ряд B, ряд A, ряд B, ... — так вяжется подкладка шляпки)
         const rowsToInsert = [];
         let rowNumber = 1;
+        let lastTwoRaw = []; // последние 2 обработанных "сырых" ряда — на случай подстраховки ниже
 
         function pushRow(r) {
           rowsToInsert.push({
@@ -2107,16 +2108,39 @@
           rowNumber++;
         }
 
+        // Подстраховка: иногда нейронка вместо структуры groupRepeat просто пересказывает
+        // словами "повторите ряд 02 и ряд 03 всего 28 раз" — распознаём такую фразу и
+        // разворачиваем сами, чередуя два предыдущих ряда, вместо того чтобы сохранить
+        // как один непонятный текстовый ряд
+        function detectRepeatPhrase(text) {
+          if (!text) return null;
+          const match = text.match(/повтор\S*.{0,60}?(\d+)\s*раз/i);
+          return match ? parseInt(match[1], 10) : null;
+        }
+
         (sec.rows || []).forEach(r => {
           if (r.groupRepeat && Array.isArray(r.rows)) {
             const times = r.groupRepeat > 0 ? r.groupRepeat : 1;
             for (let i = 0; i < times; i++) {
               r.rows.forEach(inner => pushRow(inner));
             }
+            lastTwoRaw = r.rows.slice(-2);
             return;
           }
+
+          const repeatTimes = detectRepeatPhrase(r.description);
+          if (repeatTimes && repeatTimes > 1 && lastTwoRaw.length === 2) {
+            // это и есть словесная инструкция про повтор — не сохраняем её как отдельный ряд,
+            // а достраиваем чередование двух предыдущих рядов до нужного количества раз
+            for (let i = 1; i < repeatTimes; i++) {
+              lastTwoRaw.forEach(inner => pushRow(inner));
+            }
+            return;
+          }
+
           const times = r.repeat && r.repeat > 1 ? r.repeat : 1;
           for (let i = 0; i < times; i++) pushRow(r);
+          lastTwoRaw = [r, r];
         });
 
         if (rowsToInsert.length) {
