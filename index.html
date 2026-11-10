@@ -6,251 +6,391 @@
 <title>Крючок и клубок</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    /* Тёплая палитра, вдохновлённая мотками пряжи. Не подстраиваемся под тему
-       Telegram (var(--tg-theme-*)) намеренно — у нас свой фирменный вид, и
-       завязка на системную тему раньше приводила к невидимому светлому тексту
-       на светлых карточках при тёмной теме Telegram. */
-    --bg:#F3EDE2; --card:#FFFCF7; --border:#E6DCC9;
-    --text:#3A2E28; --text-secondary:#8C7C6B;
-    --accent:#A8536A; --accent-light:#F3E4E8;
-    --done-bg:#F1EDE2; --done-text:#8A9A6B;
+    /* Светлый нейтральный фон, тёмные акцентные блоки и один ягодный акцент.
+       Не подстраиваемся под тему Telegram (var(--tg-theme-*)) намеренно — у нас свой вид. */
+    --bg:#F3F1EE; --card:#FFFFFF; --border:#E4DFD9;
+    --ink:#1F1A24; --text:#1F1A24; --text-secondary:#6B6470; --on-dark-muted:#C9C2CE;
+    --accent:#C2335A; --accent-hover:#A92A4E; --accent-light:#F8E1E7;
+    --done-bg:#ECE8E3; --done-text:#9A929F;
+    --radius-l:28px; --radius-m:20px; --radius-s:14px;
+    --font-display:'Unbounded', 'Onest', sans-serif;
+    --font-body:'Onest', -apple-system, system-ui, sans-serif;
   }
   *{box-sizing:border-box;}
+  html{ -webkit-text-size-adjust:100%; }
   body{
-    font-family:'Nunito',-apple-system,sans-serif;
+    font-family:var(--font-body);
     background:var(--bg); color:var(--text);
-    padding:0 16px 60px; margin:0;
+    padding:0 16px 120px; margin:0;
+    -webkit-tap-highlight-color:transparent;
   }
-  h2{font-size:17px; margin:0; font-family:'Bitter',serif; font-weight:600;}
-  #status{color:var(--text-secondary); font-size:13px; margin:10px 0 4px;}
+  body.in-project{ padding-bottom:132px; }
+  h1,h2{ margin:0; font-family:var(--font-display); font-weight:600; letter-spacing:-0.02em; }
+  h2{ font-size:17px; }
+  .section-title{ font-size:18px; margin:28px 0 12px; }
+  #status{ color:var(--text-secondary); font-size:13px; margin:8px 0 0; }
+  #status:empty{ display:none; }
+
+  /* ---------- Кнопки ---------- */
   button{
-    background:var(--accent); color:white; border:none;
-    padding:11px 16px; border-radius:12px; font-size:14px; margin:4px 4px 4px 0;
-    cursor:pointer; font-family:'Nunito',sans-serif; font-weight:700;
+    background:var(--accent); color:#fff; border:none;
+    min-height:44px; padding:0 18px; border-radius:var(--radius-s);
+    font-size:15px; margin:4px 4px 4px 0;
+    cursor:pointer; font-family:var(--font-body); font-weight:600;
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    transition:background-color .15s ease, transform .1s ease;
   }
-  button.secondary{ background:var(--card); color:var(--text); border:1.5px solid var(--border); font-weight:600; }
-  button:disabled{ opacity:.5; cursor:not-allowed; }
-  .back-btn{
-    background:none; color:var(--accent); padding:4px 0; font-size:14px; font-weight:700;
-    display:block; margin-top:20px; padding-top:14px; border-top:1.5px solid var(--border);
-  }
+  button:active{ transform:scale(0.97); }
+  button:hover{ background:var(--accent-hover); }
+  button.secondary{ background:var(--card); color:var(--text); border:1px solid var(--border); }
+  button.secondary:hover{ background:#FAF9F7; }
+  button:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+  button svg{ flex-shrink:0; }
+  .wide-btn{ width:100%; margin:12px 0 0; }
+  .back-btn{ display:none !important; }
 
-  /* ---------- Шапка с зубчатым краем ---------- */
-  .app-header{ margin:0 -16px 16px; }
-  .app-header-bar{
-    display:flex; align-items:center; gap:10px; padding:16px 18px 18px;
-    color:white;
+  /* ---------- Шапка ---------- */
+  .app-header{ display:flex; align-items:center; gap:12px; padding:20px 0 16px; }
+  .app-logo{ display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
+  .app-logo-text{ font-family:var(--font-display); font-weight:600; font-size:15px; letter-spacing:-0.01em; }
+  .round-btn{
+    width:44px; height:44px; min-height:44px; border-radius:22px; padding:0; margin:0; flex-shrink:0;
+    background:var(--card); color:var(--text); border:1px solid var(--border);
   }
-  .app-header-back{
-    width:32px; height:32px; border-radius:50%; flex-shrink:0;
-    background:rgba(255,255,255,0.22); border:none; color:white;
-    display:flex; align-items:center; justify-content:center;
-    font-size:18px; cursor:pointer; padding:0; margin:0;
-  }
+  .round-btn:hover{ background:#FAF9F7; }
+  .app-header-titles{ flex:1; min-width:0; }
   .app-header-title{
-    font-family:'Bitter',serif; font-weight:700; font-size:21px;
-    line-height:1.2; color:white;
+    font-family:var(--font-display); font-weight:600; font-size:20px; letter-spacing:-0.02em;
+    line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  .app-header-sub{ font-size:12px; color:rgba(255,255,255,0.8); margin-top:2px; }
-  .picot-edge{ display:block; width:100%; margin-top:-1px; }
+  .app-header-sub{ font-size:13px; color:var(--text-secondary); margin-top:2px; }
 
-  /* ---------- Круглые "мотки пряжи" — иконки категорий ---------- */
-  .yarn-circle{
-    border-radius:50%; display:flex; align-items:center; justify-content:center;
-    flex-shrink:0;
+  /* ---------- Поиск ---------- */
+  .search-box{
+    display:flex; align-items:center; gap:10px; height:52px; padding:0 16px;
+    border-radius:18px; background:var(--card); margin:4px 0 0;
   }
-
-  .project-item, .section-block, .row-item{
-    background:var(--card); border:1.5px solid var(--border); border-radius:14px;
-    padding:12px; margin-bottom:10px;
-  }
-  .project-item{ cursor:pointer; display:flex; align-items:center; gap:12px; }
-  .project-thumb{
-    width:52px; height:52px; border-radius:12px; flex-shrink:0;
-    object-fit:cover; background:var(--done-bg);
-  }
-  .project-info{ flex:1; min-width:0; }
-  .photo-gallery{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
-  .photo-gallery img{
-    width:72px; height:72px; border-radius:12px; object-fit:cover;
-    border:1.5px solid var(--border);
-  }
-  .project-badges{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; justify-content:center; }
-  .badge-cat{
-    font-size:11px; font-weight:700; background:var(--accent-light); color:var(--accent); padding:3px 9px; border-radius:8px;
-  }
-  .badge-tag{
-    font-size:11px; font-weight:700; background:var(--done-bg); color:var(--done-text); padding:3px 9px; border-radius:8px;
-  }
-  .tag-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
-  .tag-pill{
-    font-size:12px; font-weight:600; padding:6px 12px; border-radius:16px; border:1.5px solid var(--border);
-    background:var(--card); color:var(--text-secondary); cursor:pointer;
-  }
-  .tag-pill.selected{ background:var(--accent); color:white; border-color:var(--accent); }
-  .new-tag-row{ display:flex; gap:6px; margin-top:8px; }
-  .new-tag-row input{ flex:1; padding:8px 10px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; font-family:inherit; }
-  .new-tag-row button{ padding:8px 12px; font-size:12px; margin:0; }
-  select.form-select{
-    width:100%; padding:10px 11px; border:1.5px solid var(--border); border-radius:10px;
-    font-size:14px; font-family:inherit; background:var(--card); color:var(--text);
-  }
-  .row-item{ display:flex; align-items:flex-start; gap:10px; padding:11px 13px; }
-  .row-item.done{ background:var(--done-bg); }
-  .row-item.done .row-desc{ text-decoration:line-through; color:var(--done-text); }
-  .row-num{
-    font-weight:800; color:var(--accent); min-width:26px; font-size:12px;
-    background:var(--accent-light); border-radius:7px; padding:2px 0; text-align:center; height:fit-content;
-  }
-  .row-desc{ flex:1; font-size:14px; color:var(--text); line-height:1.4; }
-  .row-note{ font-size:12px; color:var(--text-secondary); margin-top:3px; }
-  .sec-meta{ font-size:12px; color:var(--text-secondary); margin:2px 0 8px; }
-  #view-project, #view-categories, #view-subcategories, #view-projects{ display:none; }
-
-  .card-grid{
-    display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;
-  }
-  .cat-card{
-    background:var(--card); border:1.5px solid var(--border); border-radius:18px;
-    padding:0 0 14px; display:flex; flex-direction:column; align-items:center;
-    gap:0; cursor:pointer; text-align:center; overflow:hidden;
-  }
-  .cat-card-icon-area{
-    width:100%; height:96px; display:flex; align-items:center; justify-content:center;
-    margin-bottom:10px;
-  }
-  .cat-card-name{ font-size:14px; font-weight:600; font-family:'Bitter',serif; color:var(--text); padding:0 8px; }
-  .cat-card-meta{ font-size:11px; color:var(--text-secondary); margin-top:3px; }
-  .project-card-img{
-    width:100%; aspect-ratio:1; object-fit:cover; background:var(--done-bg);
+  .search-box input{
+    flex:1; min-width:0; border:0; outline:none; background:transparent;
+    font-family:inherit; font-size:15px; color:var(--text);
   }
 
-  .inline-form{
-    background:#FBF7EF; border:1.5px solid var(--border); border-radius:14px;
-    padding:14px; margin:8px 0 14px;
+  /* ---------- Карточка «Сейчас вяжу» ---------- */
+  .hero{
+    background:var(--ink); color:#fff; border-radius:var(--radius-l); padding:20px;
+    display:flex; flex-direction:column; gap:18px;
   }
-  .inline-form label{ display:block; font-size:12px; color:var(--text-secondary); margin:8px 0 3px; font-weight:600; }
-  .inline-form label:first-child{ margin-top:0; }
-  .inline-form input, .inline-form textarea{
-    width:100%; padding:10px 11px; border:1.5px solid var(--border); border-radius:10px;
-    font-size:14px; font-family:inherit; background:var(--card); color:var(--text);
+  .hero-top{ display:flex; gap:16px; align-items:center; }
+  .hero-info{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .hero-chip{
+    align-self:flex-start; font-size:12px; font-weight:500; padding:4px 10px;
+    border-radius:999px; background:rgba(255,255,255,0.12); color:#EDE8F0;
   }
-  .inline-form textarea{ resize:vertical; min-height:44px; }
-  .form-actions{ margin-top:12px; }
+  .hero-title{ font-family:var(--font-display); font-weight:600; font-size:24px; letter-spacing:-0.02em; line-height:1.15; overflow-wrap:anywhere; }
+  .hero-sub{ font-size:14px; color:var(--on-dark-muted); }
+  .hero-ring{ width:84px; height:84px; position:relative; flex-shrink:0; }
+  .hero-ring-label{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .hero-ring-label b{ font-family:var(--font-display); font-weight:600; font-size:17px; }
+  .hero-ring-label span{ font-size:10px; color:var(--on-dark-muted); }
+  .hero-btn{ width:100%; min-height:52px; border-radius:18px; margin:0; font-size:16px; }
+  .hero-empty{ display:flex; flex-direction:column; gap:10px; }
+  .hero-empty p{ margin:0; color:var(--on-dark-muted); font-size:14px; line-height:1.4; }
+
+  /* ---------- Недавние: горизонтальная лента ---------- */
+  .recent-strip{ display:flex; gap:12px; overflow-x:auto; margin:0 -16px; padding:0 16px 4px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+  .recent-strip::-webkit-scrollbar{ display:none; }
+  .recent-card{
+    width:150px; flex-shrink:0; background:var(--card); border-radius:24px; padding:8px 8px 14px;
+    display:flex; flex-direction:column; gap:10px; cursor:pointer; scroll-snap-align:start;
+  }
+  .recent-card .cover{ height:120px; border-radius:18px; }
+  .recent-card-body{ padding:0 6px; display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .recent-card-name{ font-weight:600; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .recent-card-cat{ font-size:12px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mini-progress{ display:flex; align-items:center; gap:8px; padding:0 6px; }
+  .mini-progress .track{ flex:1; height:5px; border-radius:3px; background:var(--done-bg); overflow:hidden; }
+  .mini-progress .fill{ height:100%; background:var(--ink); border-radius:3px; }
+  .mini-progress span{ font-size:12px; font-weight:600; }
+
+  /* ---------- Обложка-заглушка с вязаной текстурой ---------- */
+  .cover{ background-size:28px 28px; background-position:center; overflow:hidden; display:block; width:100%; object-fit:cover; }
+
+  /* ---------- Сетки категорий и проектов ---------- */
+  .card-grid{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; margin-top:12px; }
+  #search-results:empty{ display:none; }
+  .cat-tile{
+    min-height:128px; border-radius:24px; background:var(--card); color:var(--text); padding:16px;
+    display:flex; flex-direction:column; justify-content:space-between; align-items:flex-start; gap:12px;
+    cursor:pointer; text-align:left; transition:transform .1s ease;
+  }
+  .cat-tile:active{ transform:scale(0.98); }
+  .cat-tile.dark{ background:var(--ink); color:#fff; }
+  .cat-tile.dark .cat-tile-meta{ color:var(--on-dark-muted); }
+  .cat-tile-emoji{ font-size:30px; line-height:1; }
+  .cat-tile-name{ font-weight:600; font-size:16px; overflow-wrap:anywhere; }
+  .cat-tile-meta{ font-size:12px; color:var(--text-secondary); margin-top:2px; }
+
+  .proj-card{
+    background:var(--card); border-radius:24px; padding:8px 8px 14px; cursor:pointer;
+    display:flex; flex-direction:column; gap:10px; min-width:0;
+  }
+  .proj-card .cover{ aspect-ratio:1; border-radius:18px; }
+  .proj-card-name{ font-weight:600; font-size:15px; padding:0 6px; overflow-wrap:anywhere; }
+  .project-badges{ display:flex; flex-wrap:wrap; gap:6px; padding:0 6px; }
+  .badge-cat, .badge-tag{ font-size:11px; font-weight:600; padding:4px 9px; border-radius:999px; }
+  .badge-cat{ background:var(--accent-light); color:var(--accent); }
+  .badge-tag{ background:var(--done-bg); color:var(--text-secondary); }
+
+  /* ---------- Нижняя навигация ---------- */
+  .bottom-nav{
+    position:fixed; left:16px; right:16px; bottom:max(16px, env(safe-area-inset-bottom)); z-index:20;
+    height:68px; border-radius:26px; background:var(--card); box-shadow:0 10px 30px rgba(31,26,36,0.12);
+    display:flex; align-items:center; justify-content:space-around; padding:0 8px; max-width:520px; margin:0 auto;
+  }
+  body.in-project .bottom-nav{ display:none; }
+  .nav-item{
+    background:none; color:var(--text-secondary); min-width:64px; height:56px; padding:0; margin:0;
+    flex-direction:column; gap:3px; font-size:11px; font-weight:500; border-radius:16px;
+  }
+  .nav-item:hover{ background:none; color:var(--text); }
+  .nav-item.active{ color:var(--text); font-weight:600; }
+  .nav-plus{ width:52px; height:52px; min-height:52px; border-radius:18px; padding:0; margin:0; }
+
+  /* ---------- Экран проекта ---------- */
+  .project-head{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+  .project-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .project-chips span{ font-size:12px; font-weight:500; padding:5px 10px; border-radius:999px; background:var(--card); }
+  #project-title{ font-size:30px; letter-spacing:-0.03em; line-height:1.15; overflow-wrap:anywhere; }
+  .progress-line{ display:flex; align-items:center; gap:10px; }
+  .progress-line .track{ flex:1; height:8px; border-radius:4px; background:var(--border); overflow:hidden; }
+  .progress-line .fill{ height:100%; width:0; background:var(--accent); border-radius:4px; transition:width .3s ease; }
+  .progress-line span{ font-size:13px; font-weight:600; white-space:nowrap; }
+  .project-actions{ display:flex; gap:8px; overflow-x:auto; margin:0 -16px 6px; padding:2px 16px 4px; scrollbar-width:none; }
+  .project-actions::-webkit-scrollbar{ display:none; }
+  .project-actions button{ flex-shrink:0; margin:0; min-height:40px; padding:0 14px; font-size:14px; border-radius:999px; }
+  .project-actions .icon-only{ width:40px; padding:0; }
+  .photo-gallery{ display:flex; gap:8px; overflow-x:auto; margin:4px -16px 10px; padding:0 16px; scrollbar-width:none; }
+  .photo-gallery:empty{ display:none; }
+  .photo-gallery img{ width:96px; height:96px; border-radius:18px; object-fit:cover; flex-shrink:0; }
+
+  .section-block{
+    background:var(--card); border-radius:24px; padding:14px 10px 10px; margin-bottom:10px;
+  }
+  .sec-header{ display:flex; align-items:center; gap:4px; padding:0 4px; }
+  .sec-toggle{ display:flex; align-items:center; gap:10px; flex:1; min-width:0; cursor:pointer; min-height:44px; }
+  .sec-toggle h2{ flex:1; font-size:17px; overflow-wrap:anywhere; }
+  .sec-chevron{ color:var(--text-secondary); transition:transform .2s ease; flex-shrink:0; display:flex; }
+  .sec-meta{ font-size:13px; color:var(--text-secondary); margin:2px 4px 8px 52px; line-height:1.4; }
+  .part-badge{
+    width:32px; height:32px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; font-family:var(--font-body);
+  }
 
   .icon-btn{
-    background:none; border:none; padding:4px 6px; font-size:14px;
-    color:var(--text-secondary); margin:0;
+    background:none; color:var(--text-secondary); border:none; width:36px; height:36px; min-height:36px;
+    padding:0; margin:0; border-radius:12px; flex-shrink:0;
   }
-  .row-actions{ display:flex; gap:2px; align-items:center; }
-  .sec-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .sec-header h2{ flex:1; }
-  .project-title-row{ display:flex; align-items:center; gap:8px; }
-  .project-title-row h2{ flex:1; font-size:13px; color:var(--text-secondary); font-weight:600; }
+  .icon-btn:hover{ background:var(--done-bg); color:var(--text); }
 
-  /* ---------- Круглый бейдж прогресса детали (в духе крючка со счётчиком) ---------- */
-  .part-badge{
-    width:28px; height:28px; border-radius:50%; flex-shrink:0;
-    display:flex; align-items:center; justify-content:center;
-    font-size:12px; font-weight:800; font-family:'Nunito',sans-serif;
+  .row-item{
+    display:flex; align-items:center; gap:10px; min-height:56px; padding:8px 6px 8px 10px;
+    border-radius:18px; margin:2px 0; transition:background-color .15s ease;
   }
+  .row-num{ width:30px; flex-shrink:0; font-family:var(--font-display); font-size:13px; font-weight:600; color:var(--text); }
+  .row-text{ flex:1; min-width:0; }
+  .row-desc{ font-size:15px; font-weight:500; line-height:1.35; overflow-wrap:anywhere; }
+  .row-sts{ font-size:12px; color:var(--text-secondary); margin-top:2px; }
+  .row-note{ font-size:12px; color:var(--text-secondary); margin-top:3px; font-style:italic; }
+  .row-item.done .row-desc{ text-decoration:line-through; color:var(--done-text); }
+  .row-item.done .row-num{ color:var(--done-text); }
+  .row-item.current{ background:var(--ink); color:#fff; }
+  .row-item.current .row-num{ color:#fff; }
+  .row-item.current .row-sts, .row-item.current .row-note{ color:var(--on-dark-muted); }
+  .row-item.current .icon-btn{ color:var(--on-dark-muted); }
+  .row-item.current .icon-btn:hover{ background:rgba(255,255,255,0.1); color:#fff; }
+  .row-check{
+    appearance:none; -webkit-appearance:none; width:28px; height:28px; margin:0 4px; flex-shrink:0;
+    border-radius:10px; border:2px solid #D6D0C9; background:transparent; cursor:pointer; position:relative;
+  }
+  .row-item.current .row-check{ border-color:rgba(255,255,255,0.5); }
+  .row-check:checked{ background:var(--accent); border-color:var(--accent); }
+  .row-check:checked::after{
+    content:''; position:absolute; left:8px; top:3px; width:6px; height:12px;
+    border:solid #fff; border-width:0 3px 3px 0; transform:rotate(45deg);
+  }
+  .row-actions{ display:flex; align-items:center; opacity:.55; }
+  .row-item.current .row-actions, .row-actions:hover, .row-actions:focus-within{ opacity:1; }
+  .row-item .inline-form{ flex:1; min-width:0; margin:4px 0; color:var(--text); }
+  .add-row-btn{ width:100%; margin:6px 0 2px; }
 
+  /* ---------- Панель текущего ряда ---------- */
+  .row-bar{
+    position:fixed; left:16px; right:16px; bottom:max(16px, env(safe-area-inset-bottom)); z-index:20;
+    max-width:520px; margin:0 auto; border-radius:26px; background:var(--ink); color:#fff;
+    padding:12px 12px 12px 20px; display:none; align-items:center; gap:12px;
+    box-shadow:0 12px 30px rgba(31,26,36,0.25);
+  }
+  body.in-project .row-bar.visible{ display:flex; }
+  .row-bar-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .row-bar-label{ font-size:12px; color:var(--on-dark-muted); }
+  .row-bar-desc{ font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-bar button{ margin:0; min-height:48px; border-radius:16px; }
+
+  /* ---------- Формы ---------- */
+  .inline-form{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-m);
+    padding:16px; margin:10px 0 14px;
+  }
+  .inline-form .inline-form{ background:#FAF9F7; }
+  .inline-form label{ display:block; font-size:13px; color:var(--text-secondary); margin:12px 0 6px; font-weight:600; }
+  .inline-form label:first-child{ margin-top:0; }
+  .inline-form > div > label:first-child{ margin-top:12px; }
+  .inline-form input, .inline-form textarea, select.form-select, .modal-input{
+    width:100%; min-height:48px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--radius-s);
+    font-size:15px; font-family:inherit; background:var(--card); color:var(--text);
+  }
+  .inline-form input:focus, .inline-form textarea:focus, select.form-select:focus, .modal-input:focus{ outline:2px solid var(--accent); outline-offset:-1px; }
+  .inline-form textarea{ resize:vertical; min-height:56px; }
+  .form-actions{ margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; }
+  .form-actions button{ margin:0; }
+  .tag-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .tag-pill{
+    font-size:13px; font-weight:500; padding:8px 14px; border-radius:999px; border:1px solid var(--border);
+    background:var(--card); color:var(--text); cursor:pointer;
+  }
+  .tag-pill.selected{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .new-tag-row{ display:flex; gap:8px; margin-top:10px; }
+  .new-tag-row input{ flex:1; }
+  .new-tag-row button{ margin:0; }
+
+  /* ---------- Модалка ---------- */
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(58,46,40,0.5);
-    display:flex; align-items:center; justify-content:center; z-index:100; padding:20px;
+    position:fixed; inset:0; background:rgba(31,26,36,0.5);
+    display:flex; align-items:flex-end; justify-content:center; z-index:100; padding:16px;
   }
-  .modal-box{
-    background:var(--card); border-radius:18px; padding:20px; max-width:340px; width:100%;
-  }
-  .modal-title{ font-weight:700; font-size:16px; margin-bottom:6px; font-family:'Bitter',serif; color:var(--text); }
-  .modal-message{ font-size:13.5px; color:var(--text-secondary); margin-bottom:12px; line-height:1.4; }
-  .modal-input{
-    width:100%; padding:10px 11px; border:1.5px solid var(--border); border-radius:10px;
-    font-size:14px; margin-bottom:12px; font-family:inherit;
-  }
+  .modal-box{ background:var(--card); border-radius:var(--radius-l); padding:22px; max-width:420px; width:100%; }
+  .modal-title{ font-weight:600; font-size:18px; margin-bottom:8px; font-family:var(--font-display); letter-spacing:-0.02em; }
+  .modal-message{ font-size:14px; color:var(--text-secondary); margin-bottom:14px; line-height:1.45; }
+  .modal-input{ margin-bottom:14px; }
   .modal-actions{ display:flex; gap:8px; justify-content:flex-end; }
+  .modal-actions button{ margin:0; flex:1; }
   .btn-danger{ background:#B0392E; }
+  .btn-danger:hover{ background:#952F26; }
 
-  /* ---------- Спиннер-клубок ---------- */
+  /* ---------- Индикатор разбора PDF ---------- */
   #pdf-loading{
-    display:none; flex-direction:column; align-items:center; gap:14px; margin:20px 0;
-    font-size:13px; color:var(--text-secondary); text-align:center;
+    display:none; align-items:center; gap:14px; margin:10px 0;
+    padding:18px 20px; border-radius:var(--radius-l); background:var(--ink); color:#fff; font-size:14px;
   }
   #pdf-loading.active{ display:flex; }
-  .yarn-spinner-emoji{
-    font-size:48px; line-height:1; display:inline-block; flex-shrink:0;
-    animation:yarn-spin 1.6s linear infinite;
+  .spinner{
+    width:28px; height:28px; border-radius:50%; flex-shrink:0;
+    border:3px solid rgba(255,255,255,0.18); border-top-color:var(--accent);
+    animation:spin 0.9s linear infinite;
   }
-  @keyframes yarn-spin{ to{ transform:rotate(360deg); } }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .spinner{ animation-duration:3s; } button, .row-item, .progress-line .fill{ transition:none; } }
+
+  .empty-note{ color:var(--text-secondary); font-size:14px; grid-column:1 / -1; margin:6px 0; }
+
   #toast{
-    position:fixed; left:16px; right:16px; bottom:16px;
-    background:#7C3E51; color:white; padding:10px 14px; border-radius:12px;
-    font-size:13px; display:none; z-index:10;
+    position:fixed; left:16px; right:16px; top:16px; max-width:520px; margin:0 auto;
+    background:var(--ink); color:#fff; padding:14px 16px; border-radius:var(--radius-m);
+    font-size:14px; display:none; z-index:200; box-shadow:0 10px 30px rgba(31,26,36,0.25);
   }
+  #view-project, #view-categories, #view-subcategories, #view-projects{ display:none; }
+  .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 </style>
 </head>
 <body>
-  <div class="app-header" id="app-header"></div>
+  <header class="app-header" id="app-header"></header>
   <p id="status">Подключаемся к базе...</p>
 
   <div id="view-categories">
-    <input type="text" id="search-input" placeholder="Поиск по тегам или названию..." style="width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:12px; font-size:14px; margin:10px 0; font-family:inherit; background:var(--card); color:var(--text);">
-    <button id="add-project-home-btn">+ Новый проект</button>
+    <label class="search-box">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6470" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <span class="visually-hidden">Поиск</span>
+      <input type="search" id="search-input" placeholder="Название или тег">
+    </label>
+    <button id="add-project-home-btn" style="display:none;">Новый проект</button>
     <div id="project-form-holder-home"></div>
     <div id="search-results" class="card-grid"></div>
-    <h2 style="margin:22px 0 0;" id="category-grid-title">Категории</h2>
-    <div id="category-grid" class="card-grid"></div>
-    <div id="recent-projects-block" style="display:none; margin-top:22px;">
-      <h2 style="margin-bottom:10px;">Недавние проекты</h2>
-      <div id="recent-projects-list"></div>
+    <div id="recent-projects-block" style="display:none;">
+      <h2 class="section-title">Сейчас вяжу</h2>
+      <div id="hero-holder"></div>
+      <h2 class="section-title" id="recent-strip-title" style="display:none;">Недавние</h2>
+      <div id="recent-projects-list" class="recent-strip"></div>
     </div>
+    <h2 class="section-title" id="category-grid-title">Категории</h2>
+    <div id="category-grid" class="card-grid"></div>
   </div>
 
   <div id="view-subcategories">
-    <h2 id="category-title"></h2>
-    <button id="add-project-category-btn">+ Новый проект</button>
+    <h2 id="category-title" class="visually-hidden"></h2>
     <div id="project-form-holder-category"></div>
     <div id="subcategory-grid" class="card-grid"></div>
-    <button class="back-btn" id="back-to-categories-btn">← Категории</button>
+    <button id="add-project-category-btn" class="secondary wide-btn">Новый проект</button>
+    <button class="back-btn" id="back-to-categories-btn">Категории</button>
   </div>
 
   <div id="view-projects">
-    <h2 id="subcategory-title"></h2>
-    <button id="add-project-btn">+ Новый проект</button>
+    <h2 id="subcategory-title" class="visually-hidden"></h2>
     <div id="project-form-holder"></div>
     <div id="project-list" class="card-grid"></div>
-    <button class="back-btn" id="back-to-subcategories-btn">← <span id="back-to-subcategories-label"></span></button>
+    <button id="add-project-btn" class="secondary wide-btn">Новый проект</button>
+    <button class="back-btn" id="back-to-subcategories-btn"><span id="back-to-subcategories-label"></span></button>
   </div>
 
   <div id="view-project">
-    <button class="back-btn" id="back-btn" style="margin-top:0; padding-top:0; border-top:none;">← Проекты</button>
-    <div class="project-title-row">
-      <h2 id="project-title"></h2>
-      <button id="edit-project-btn" class="icon-btn" title="Редактировать проект">✎</button>
-      <button id="delete-project-btn" class="icon-btn" title="Удалить проект">🗑</button>
+    <button class="back-btn" id="back-btn">Проекты</button>
+    <div class="project-head">
+      <div class="project-chips" id="project-chips"></div>
+      <h1 id="project-title"></h1>
+      <div class="progress-line" id="project-progress" style="display:none;">
+        <div class="track"><div class="fill" id="project-progress-fill"></div></div>
+        <span id="project-progress-text"></span>
+      </div>
     </div>
+    <div class="project-actions">
+      <button id="upload-pdf-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v4h4M9 13h6M12 10v6"/></svg>PDF-схема</button>
+      <button id="upload-photo-btn" class="secondary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M8 6l1.5-2h5L16 6"/><circle cx="12" cy="13" r="3.5"/></svg>Фото работы</button>
+      <button id="add-section-btn" class="secondary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Деталь</button>
+      <button id="edit-project-btn" class="secondary icon-only" aria-label="Редактировать проект" title="Редактировать проект"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg></button>
+      <button id="delete-project-btn" class="secondary icon-only" aria-label="Удалить проект" title="Удалить проект"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+    </div>
+    <input type="file" id="photo-input" accept="image/*" style="display:none;">
+    <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
     <div id="project-edit-form-holder"></div>
     <div id="photo-gallery" class="photo-gallery"></div>
-    <button id="upload-photo-btn" class="secondary">📷 Добавить фото готовой работы</button>
-    <input type="file" id="photo-input" accept="image/*" style="display:none;">
-    <button id="upload-pdf-btn">📄 Загрузить PDF-схему</button>
-    <button id="add-section-btn" class="secondary">Добавить деталь вручную</button>
-    <input type="file" id="pdf-input" accept="application/pdf" style="display:none;">
-    <div id="pdf-loading">
-      <span class="yarn-spinner-emoji">🧶</span>
+    <div id="pdf-loading" role="status">
+      <span class="spinner" aria-hidden="true"></span>
       <span id="pdf-loading-text">Разбираем схему...</span>
     </div>
     <div id="section-form-holder"></div>
     <div id="section-list"></div>
   </div>
 
-  <div id="toast"></div>
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <button class="nav-item active" id="nav-home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10 12 4l8 6v10H4V10Z"/></svg>Главная</button>
+    <button class="nav-plus" id="nav-add" aria-label="Новый проект"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="nav-item" id="nav-search"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Поиск</button>
+  </nav>
 
+  <div class="row-bar" id="row-bar" role="region" aria-label="Текущий ряд">
+    <div class="row-bar-text">
+      <span class="row-bar-label" id="row-bar-label"></span>
+      <span class="row-bar-desc" id="row-bar-desc"></span>
+    </div>
+    <button id="row-bar-btn">Готово</button>
+  </div>
+
+  <div id="toast" role="status"></div>
   <script>
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
@@ -328,12 +468,89 @@
     // ---------- Фирменные цвета по названию категории (как разные цвета пряжи) ----------
     // Для новых категорий, которые пользователь создаёт сам, используется общий бренд-цвет (запасной)
     const CATEGORY_COLORS = {
-      'Одежда':      { main: '#C17A4E', light: '#F5EAE0' },
-      'Игрушки':     { main: '#D9A441', light: '#FAF0D5' },
-      'Для дома':    { main: '#8A9A6B', light: '#E8EEE0' },
-      'Аксессуары':  { main: '#5B7C99', light: '#DCE9F3' },
+      'Одежда':      { main: '#B58C60', light: '#E9D9C4' },
+      'Игрушки':     { main: '#54688C', light: '#D6DDE8' },
+      'Для дома':    { main: '#486E4A', light: '#D9E3D3' },
+      'Аксессуары':  { main: '#8C5470', light: '#EBDCE3' },
     };
-    const FALLBACK_COLOR = { main: '#A8536A', light: '#F3E4E8' };
+    const FALLBACK_COLOR = { main: '#C2335A', light: '#F8E1E7' };
+
+    // ---------- Линейные иконки (вместо эмодзи) ----------
+    function svgIcon(paths, size, stroke, width) {
+      return `<svg width="${size || 20}" height="${size || 20}" viewBox="0 0 24 24" fill="none" stroke="${stroke || 'currentColor'}" stroke-width="${width || 1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+    }
+    const ICON_PATHS = {
+      back: '<path d="M15 5l-7 7 7 7"/>',
+      chevron: '<path d="m6 9 6 6 6-6"/>',
+      up: '<path d="m6 15 6-6 6 6"/>',
+      down: '<path d="m6 9 6 6 6-6"/>',
+      edit: '<path d="M4 20h4L19 9l-4-4L4 16v4Z"/>',
+      trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+      arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+      plus: '<path d="M12 5v14M5 12h14"/>',
+      check: '<path d="m5 12 5 5 9-10"/>',
+      // категории
+      'Одежда': '<path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c0 2-2 3-4 3S8 5 8 3Z"/>',
+      'Игрушки': '<circle cx="6.5" cy="6" r="2.5"/><circle cx="17.5" cy="6" r="2.5"/><circle cx="12" cy="13" r="7"/><circle cx="12" cy="15" r="2"/>',
+      'Для дома': '<path d="M3 11 12 4l9 7M5 9.5V20h14V9.5M10 20v-6h4v6"/>',
+      'Аксессуары': '<path d="M4 9h16l-1.5 11h-13L4 9ZM8.5 9a3.5 3.5 0 0 1 7 0"/>',
+      // подкатегории
+      'Трикотаж': '<path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c0 2-2 3-4 3S8 5 8 3Z"/>',
+      'Юбки': '<path d="M8 4h8l4 16H4L8 4ZM8 8h8"/>',
+      'Платья': '<path d="M9 3h6l-1 5 5 13H5l5-13-1-5Z"/>',
+      'Шапки/шарфы': '<path d="M5 15a7 7 0 0 1 14 0M4 15h16v4H4zM12 4v4"/><circle cx="12" cy="3.5" r="1.5"/>',
+      'Носки/тапочки': '<path d="M9 3h6v9l3 4a3 3 0 0 1-2.5 5H9a3 3 0 0 1-3-3V3h3"/>',
+      'Пледы': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M3 14h18M9 5v14M15 5v14"/>',
+      'Салфетки/скатерти': '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/>',
+      'Подушки': '<path d="M5 6c4-2 10-2 14 0 1.5 4 1.5 8 0 12-4 2-10 2-14 0-1.5-4-1.5-8 0-12Z"/>',
+      'Корзинки': '<path d="M3 10h18l-2 10H5L3 10ZM7 10l3-6M17 10l-3-6M8 14v3M12 14v3M16 14v3"/>',
+      'Сумки': '<path d="M4 9h16l-1.5 11h-13L4 9ZM8.5 9a3.5 3.5 0 0 1 7 0"/>',
+      'Украшения': '<path d="M6 3h12l3 5-9 13L3 8l3-5ZM3 8h18M9 3l3 18M15 3l-3 18"/>',
+      yarn: '<circle cx="12" cy="12" r="8"/><path d="M5 9c4 2 10 2 14 0M4.5 14c5 2.5 10 2.5 15 0M9 4.5c3 4 3 11 0 15M15 4.5c-3 4-3 11 0 15"/>'
+    };
+    function icon(name, size, stroke, width) {
+      return svgIcon(ICON_PATHS[name] || ICON_PATHS.yarn, size, stroke, width);
+    }
+    // Иконка категории: своя линейная для известных, иначе эмодзи, который задали при создании
+    function categoryIconHtml(cat, size, stroke) {
+      if (!cat) return icon('yarn', size, stroke, 1.4);
+      if (ICON_PATHS[cat.name]) return icon(cat.name, size, stroke, 1.4);
+      const parent = cat.parent_id ? allCategories.find(c => c.id === cat.parent_id) : null;
+      if (cat.icon) return `<span class="cat-tile-emoji" aria-hidden="true">${cat.icon}</span>`;
+      if (parent && ICON_PATHS[parent.name]) return icon(parent.name, size, stroke, 1.4);
+      return icon('yarn', size, stroke, 1.4);
+    }
+
+    // ---------- Обложка: фото работы или «вязаная» текстура в цвет категории ----------
+    function coverEl(photoUrl, colors, alt) {
+      if (photoUrl) {
+        const img = document.createElement('img');
+        img.className = 'cover';
+        img.src = photoUrl;
+        img.alt = alt || '';
+        img.loading = 'lazy';
+        return img;
+      }
+      const div = document.createElement('div');
+      div.className = 'cover';
+      div.setAttribute('aria-hidden', 'true');
+      const stitch = colors.main + '55';
+      div.style.backgroundColor = colors.light;
+      div.style.backgroundImage =
+        `repeating-linear-gradient(60deg, ${stitch} 0 6px, transparent 6px 14px), repeating-linear-gradient(-60deg, ${stitch} 0 6px, transparent 6px 14px)`;
+      return div;
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
+    function pluralRu(n, one, few, many) {
+      const m10 = n % 10, m100 = n % 100;
+      if (m10 === 1 && m100 !== 11) return one;
+      if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+      return many;
+    }
 
     function getTopCategoryOf(subcategoryId) {
       const subcat = allCategories.find(c => c.id === subcategoryId);
@@ -350,53 +567,25 @@
       return top ? getColorForCategoryName(top.name) : FALLBACK_COLOR;
     }
 
-    // ---------- Зубчатый край (обвязка крючком) под цветной шапкой ----------
-    function picotEdgeSvg(fillColor) {
-      const W = 400, R = 9, N = 23;
-      const step = (W - 2 * R) / (N - 1);
-      let circles = '';
-      for (let i = 0; i < N; i++) {
-        const cx = R + i * step;
-        circles += `<circle cx="${cx}" cy="${R}" r="${R}" fill="${fillColor}"/>`;
-      }
-      return `<svg class="picot-edge" viewBox="0 0 ${W} ${R * 2}" preserveAspectRatio="none" style="height:${R * 2}px;" aria-hidden="true">
-        <rect x="0" y="0" width="${W}" height="${R}" fill="${fillColor}"/>${circles}
-      </svg>`;
-    }
-
     // ---------- Отрисовка шапки приложения ----------
-    // color: hex цвет фона шапки; title/subtitle: текст; onBack: функция или null (без кнопки назад)
+    // color — больше не используется (оставлен для совместимости вызовов);
+    // без onBack — главная: логотип и название; с onBack — круглая кнопка «назад» и заголовок экрана
     function renderAppHeader(color, title, subtitle, onBack) {
-      appHeaderEl.innerHTML = `
-        <div class="app-header-bar" style="background:${color};">
-          ${onBack ? '<button class="app-header-back" id="app-header-back-btn">‹</button>' : ''}
-          <div style="flex:1; min-width:0;">
-            <div class="app-header-title">${title}</div>
-            ${subtitle ? `<div class="app-header-sub">${subtitle}</div>` : ''}
-          </div>
-        </div>
-        ${picotEdgeSvg(color)}
-      `;
-      if (onBack) {
-        document.getElementById('app-header-back-btn').addEventListener('click', onBack);
+      if (!onBack) {
+        appHeaderEl.innerHTML = `
+          <div class="app-logo">
+            <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15" fill="#C2335A"/><path d="M7 14c6 3 14 3 20 0M6 19c7 3 15 3 22 0M11 8c4 6 4 12 0 18M23 8c-4 6-4 12 0 18" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".85"/></svg>
+            <span class="app-logo-text">крючок&nbsp;и&nbsp;клубок</span>
+          </div>`;
+        return;
       }
-    }
-
-    // ---------- Круглый "моток пряжи" — иконка категории/проекта ----------
-    function yarnCircleHtml(color, size, emoji, fontSize) {
-      return `<div class="yarn-circle" style="width:${size}px; height:${size}px; font-size:${fontSize}px;
-        background:radial-gradient(circle at 36% 32%, ${color}, ${color}dd 55%, ${color}); ">${emoji}</div>`;
-    }
-
-    function yarnCircleEl(color, size, emoji, fontSize) {
-      const div = document.createElement('div');
-      div.className = 'yarn-circle';
-      div.style.width = size + 'px';
-      div.style.height = size + 'px';
-      div.style.fontSize = fontSize + 'px';
-      div.style.background = `radial-gradient(circle at 36% 32%, ${color}f0, ${color} 55%, ${color}cc)`;
-      div.textContent = emoji;
-      return div;
+      appHeaderEl.innerHTML = `
+        <button class="round-btn" id="app-header-back-btn" aria-label="Назад">${icon('back', 20)}</button>
+        <div class="app-header-titles">
+          ${title ? `<div class="app-header-title">${escapeHtml(title)}</div>` : ''}
+          ${subtitle ? `<div class="app-header-sub">${escapeHtml(subtitle)}</div>` : ''}
+        </div>`;
+      document.getElementById('app-header-back-btn').addEventListener('click', onBack);
     }
 
     // ---------- Уведомления об ошибках ----------
@@ -570,10 +759,93 @@
         .order('created_at', { ascending: false });
       if (error) { showToast('Ошибка: ' + error.message); return; }
       projectsCache = data || [];
-      statusEl.textContent = 'Проектов: ' + projectsCache.length;
     }
 
-    // ---------- Недавние проекты с прогресс-баром (на главном экране) ----------
+    // ---------- «Сейчас вяжу» + недавние проекты (на главном экране) ----------
+    const heroHolderEl = document.getElementById('hero-holder');
+    const recentStripTitleEl = document.getElementById('recent-strip-title');
+
+    function renderHeroEmpty() {
+      heroHolderEl.innerHTML = '';
+      const hero = document.createElement('div');
+      hero.className = 'hero';
+      hero.innerHTML = `
+        <div class="hero-empty">
+          <div class="hero-title">Пока ничего не вяжется</div>
+          <p>Создайте проект и загрузите PDF-схему — ряды разложатся в чеклист сами.</p>
+        </div>`;
+      const btn = document.createElement('button');
+      btn.className = 'hero-btn';
+      btn.innerHTML = 'Новый проект ' + icon('arrow', 18, '#fff', 2);
+      btn.addEventListener('click', openNewProjectForm);
+      hero.appendChild(btn);
+      heroHolderEl.appendChild(hero);
+      recentStripTitleEl.style.display = 'none';
+      recentProjectsListEl.innerHTML = '';
+    }
+
+    function renderHero(p, t, next) {
+      heroHolderEl.innerHTML = '';
+      const pct = t.total ? Math.round((t.done / t.total) * 100) : 0;
+      const C = 2 * Math.PI * 34;
+      const subcat = allCategories.find(c => c.id === p.subcategory_id);
+      const top = getTopCategoryOf(p.subcategory_id);
+      const chip = top ? top.name : (subcat ? subcat.name : '');
+
+      let subText = '';
+      if (!t.total) subText = 'Рядов пока нет';
+      else if (next) subText = `${next.sectionTitle} · ряд ${next.rowNumber}`;
+      else subText = 'Все ряды связаны';
+
+      const hero = document.createElement('div');
+      hero.className = 'hero';
+      hero.innerHTML = `
+        <div class="hero-top">
+          <div class="hero-info">
+            ${chip ? `<span class="hero-chip">${escapeHtml(chip)}</span>` : ''}
+            <div class="hero-title">${escapeHtml(p.name)}</div>
+            <div class="hero-sub">${escapeHtml(subText)}</div>
+          </div>
+          <div class="hero-ring" role="img" aria-label="Готово ${pct}%">
+            <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true">
+              <circle cx="42" cy="42" r="34" stroke="rgba(255,255,255,0.14)" stroke-width="9" fill="none"/>
+              <circle cx="42" cy="42" r="34" stroke="#C2335A" stroke-width="9" fill="none" stroke-linecap="round"
+                stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - pct / 100)).toFixed(1)}" transform="rotate(-90 42 42)"/>
+            </svg>
+            <div class="hero-ring-label"><b>${pct}%</b><span>проекта</span></div>
+          </div>
+        </div>`;
+      const btn = document.createElement('button');
+      btn.className = 'hero-btn';
+      btn.innerHTML = (next ? `Продолжить с ряда ${next.rowNumber} ` : 'Открыть проект ') + icon('arrow', 18, '#fff', 2);
+      btn.addEventListener('click', () => openProject(p.id, p.name));
+      hero.appendChild(btn);
+      heroHolderEl.appendChild(hero);
+    }
+
+    function recentCardEl(p, t) {
+      const colors = getColorForSubcategory(p.subcategory_id);
+      const pct = t.total ? Math.round((t.done / t.total) * 100) : 0;
+      const card = document.createElement('button');
+      card.className = 'recent-card';
+      card.style.cssText = 'background:var(--card); color:var(--text); margin:0; padding:8px 8px 14px; align-items:stretch; text-align:left; min-height:0;';
+      card.appendChild(coverEl(photoMap[p.id], colors, p.name));
+      const body = document.createElement('div');
+      body.className = 'recent-card-body';
+      body.innerHTML = `
+        <span class="recent-card-name">${escapeHtml(p.name)}</span>
+        <span class="recent-card-cat">${escapeHtml(getCategoryName(p.subcategory_id) || '')}</span>`;
+      card.appendChild(body);
+      if (t.total) {
+        const prog = document.createElement('div');
+        prog.className = 'mini-progress';
+        prog.innerHTML = `<div class="track"><div class="fill" style="width:${pct}%"></div></div><span>${pct}%</span>`;
+        card.appendChild(prog);
+      }
+      card.addEventListener('click', () => openProject(p.id, p.name));
+      return card;
+    }
+
     async function renderRecentProjects() {
       recentProjectsBlockEl.style.display = 'block';
       recentProjectsListEl.innerHTML = '';
@@ -587,11 +859,7 @@
         .limit(150);
 
       if (progError) { showToast('Ошибка: ' + progError.message); return; }
-
-      if (!progressRows || !progressRows.length) {
-        recentProjectsListEl.appendChild(emptyMessage('Вы ещё не начали ни одного проекта'));
-        return;
-      }
+      if (!progressRows || !progressRows.length) { renderHeroEmpty(); return; }
 
       // 2. Ряд -> деталь -> проект, чтобы понять, какому проекту принадлежит каждая отметка
       const recentRowIds = progressRows.map(pr => pr.row_id);
@@ -606,141 +874,85 @@
         (sectionsData || []).forEach(s => { sectionToProject[s.id] = s.project_id; });
       }
 
-      // 3. Идём по отметкам от самой свежей и берём первые 3 РАЗНЫХ проекта
+      // 3. Идём по отметкам от самой свежей и берём до 6 РАЗНЫХ проектов
       const recentProjectIds = [];
       for (const pr of progressRows) {
-        const secId = rowToSection[pr.row_id];
-        const projId = sectionToProject[secId];
-        if (projId && !recentProjectIds.includes(projId)) {
+        const projId = sectionToProject[rowToSection[pr.row_id]];
+        if (projId && !recentProjectIds.includes(projId) && projectsCache.some(p => p.id === projId)) {
           recentProjectIds.push(projId);
-          if (recentProjectIds.length === 3) break;
+          if (recentProjectIds.length === 6) break;
         }
       }
+      if (!recentProjectIds.length) { renderHeroEmpty(); return; }
 
-      if (!recentProjectIds.length) {
-        recentProjectsListEl.appendChild(emptyMessage('Вы ещё не начали ни одного проекта'));
-        return;
-      }
+      const recent = recentProjectIds.map(id => projectsCache.find(p => p.id === id)).filter(Boolean);
 
-      const recent = recentProjectIds
-        .map(id => projectsCache.find(p => p.id === id))
-        .filter(Boolean);
-
-      // 4. Считаем прогресс (done/total) по каждому из этих проектов — уже среди ВСЕХ его рядов
-      const { data: allSections } = await sb.from('sections').select('id, project_id').in('project_id', recentProjectIds);
-      const allSectionIds = (allSections || []).map(s => s.id);
-      const allSectionToProject = {};
-      (allSections || []).forEach(s => { allSectionToProject[s.id] = s.project_id; });
+      // 4. Прогресс (done/total) по каждому проекту — среди ВСЕХ его рядов
+      const { data: allSections } = await sb.from('sections').select('id, project_id, title, position').in('project_id', recentProjectIds);
+      const sectionsById = {};
+      (allSections || []).forEach(s => { sectionsById[s.id] = s; });
+      const allSectionIds = Object.keys(sectionsById);
 
       let allRows = [];
       if (allSectionIds.length) {
-        const { data } = await sb.from('rows').select('id, section_id').in('section_id', allSectionIds);
+        const { data } = await sb.from('rows').select('id, section_id, row_number, position').in('section_id', allSectionIds);
         allRows = data || [];
       }
 
       let allCheckedRowIds = new Set();
       if (allRows.length) {
-        const allRowIds = allRows.map(r => r.id);
         const { data } = await sb.from('row_progress').select('row_id')
-          .eq('telegram_user_id', currentUserId).in('row_id', allRowIds);
+          .eq('telegram_user_id', currentUserId).in('row_id', allRows.map(r => r.id));
         allCheckedRowIds = new Set((data || []).map(x => x.row_id));
       }
 
-      const totals = {}; // projectId -> {done, total}
+      const totals = {};
       recentProjectIds.forEach(id => { totals[id] = { done: 0, total: 0 }; });
       allRows.forEach(r => {
-        const projId = allSectionToProject[r.section_id];
-        if (!totals[projId]) return;
-        totals[projId].total++;
-        if (allCheckedRowIds.has(r.id)) totals[projId].done++;
+        const sec = sectionsById[r.section_id];
+        if (!sec || !totals[sec.project_id]) return;
+        totals[sec.project_id].total++;
+        if (allCheckedRowIds.has(r.id)) totals[sec.project_id].done++;
       });
 
-      recent.forEach((p, idx) => {
-        const colors = getColorForSubcategory(p.subcategory_id);
-        const t = totals[p.id];
-        const pct = t.total ? Math.round((t.done / t.total) * 100) : 0;
+      // 5. Для главного проекта ищем следующий несвязанный ряд (по порядку деталей и рядов)
+      const main = recent[0];
+      const mainRows = allRows
+        .filter(r => sectionsById[r.section_id] && sectionsById[r.section_id].project_id === main.id)
+        .sort((a, b) => (sectionsById[a.section_id].position - sectionsById[b.section_id].position) || (a.position - b.position));
+      const nextRow = mainRows.find(r => !allCheckedRowIds.has(r.id));
+      const next = nextRow ? { rowNumber: nextRow.row_number, sectionTitle: sectionsById[nextRow.section_id].title } : null;
 
-        const item = document.createElement('div');
-        item.style.cssText = 'display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer;' +
-          (idx < recent.length - 1 ? ' border-bottom:1.5px solid var(--border);' : '');
-        item.addEventListener('click', () => openProject(p.id, p.name));
+      renderHero(main, totals[main.id], next);
 
-        const photoUrl = photoMap[p.id];
-        if (photoUrl) {
-          const img = document.createElement('img');
-          img.src = photoUrl;
-          img.style.cssText = 'width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0;';
-          item.appendChild(img);
-        } else {
-          item.appendChild(yarnCircleEl(colors.main, 40, getCategoryIcon(p.subcategory_id), 17));
-        }
-
-        const info = document.createElement('div');
-        info.style.cssText = 'flex:1; min-width:0;';
-        info.innerHTML = `
-          <div style="font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
-          <div style="font-size:11px; color:var(--text-secondary); margin-top:1px;">${getCategoryName(p.subcategory_id) || ''}</div>
-        `;
-        item.appendChild(info);
-
-        if (t.total > 0) {
-          const progWrap = document.createElement('div');
-          progWrap.style.cssText = 'text-align:right; flex-shrink:0;';
-          progWrap.innerHTML = `
-            <div style="font-size:12px; font-weight:700; color:${colors.main};">${pct}%</div>
-            <div style="width:48px; height:4px; background:var(--done-bg); border-radius:4px; margin-top:4px; overflow:hidden;">
-              <div style="height:100%; width:${pct}%; background:${colors.main}; border-radius:4px;"></div>
-            </div>
-          `;
-          item.appendChild(progWrap);
-        }
-
-        recentProjectsListEl.appendChild(item);
-      });
-
-      recentProjectsBlockEl.style.display = 'block';
+      const rest = recent.slice(1);
+      recentStripTitleEl.style.display = rest.length ? '' : 'none';
+      rest.forEach(p => recentProjectsListEl.appendChild(recentCardEl(p, totals[p.id])));
     }
 
     // ---------- Карточка проекта (переиспользуется в поиске и списке по подкатегории) ----------
     function createProjectItemEl(p) {
       const colors = getColorForSubcategory(p.subcategory_id);
       const card = document.createElement('div');
-      card.className = 'cat-card';
-
-      const photoUrl = photoMap[p.id];
-      if (photoUrl) {
-        const img = document.createElement('img');
-        img.className = 'project-card-img';
-        img.src = photoUrl;
-        img.alt = p.name;
-        card.appendChild(img);
-      } else {
-        const iconArea = document.createElement('div');
-        iconArea.className = 'cat-card-icon-area';
-        iconArea.style.background = colors.light;
-        iconArea.appendChild(yarnCircleEl(colors.main, 64, getCategoryIcon(p.subcategory_id), 27));
-        card.appendChild(iconArea);
-      }
+      card.className = 'proj-card';
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+      card.appendChild(coverEl(photoMap[p.id], colors, p.name));
 
       const name = document.createElement('div');
-      name.className = 'cat-card-name';
-      name.style.marginTop = '10px';
+      name.className = 'proj-card-name';
       name.textContent = p.name;
       card.appendChild(name);
 
       const badges = document.createElement('div');
       badges.className = 'project-badges';
-
       const subcatName = getCategoryName(p.subcategory_id);
       if (subcatName) {
         const catBadge = document.createElement('span');
         catBadge.className = 'badge-cat';
-        catBadge.style.background = colors.light;
-        catBadge.style.color = colors.main;
         catBadge.textContent = subcatName;
         badges.appendChild(catBadge);
       }
-
       (p.project_tags || []).forEach(pt => {
         if (!pt.tags?.name) return;
         const tagBadge = document.createElement('span');
@@ -748,20 +960,39 @@
         tagBadge.textContent = pt.tags.name;
         badges.appendChild(tagBadge);
       });
-
       if (badges.children.length) card.appendChild(badges);
 
       card.addEventListener('click', () => openProject(p.id, p.name));
+      card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openProject(p.id, p.name); } });
       return card;
     }
 
     function emptyMessage(text) {
       const empty = document.createElement('p');
-      empty.style.color = 'var(--text-secondary)';
-      empty.style.fontSize = '13px';
-      empty.style.gridColumn = '1 / -1';
+      empty.className = 'empty-note';
       empty.textContent = text;
       return empty;
+    }
+
+    // Плитка категории / подкатегории
+    function categoryTileEl(cat, metaText, dark) {
+      const tile = document.createElement('button');
+      tile.className = 'cat-tile' + (dark ? ' dark' : '');
+      tile.style.margin = '0';
+      tile.innerHTML = `
+        ${categoryIconHtml(cat, 34, dark ? '#fff' : '#1F1A24')}
+        <span><span class="cat-tile-name" style="display:block;">${escapeHtml(cat.name)}</span>
+        <span class="cat-tile-meta" style="display:block;">${escapeHtml(metaText)}</span></span>`;
+      return tile;
+    }
+
+    function countProjectsIn(catId) {
+      const ids = new Set([catId, ...allCategories.filter(c => c.parent_id === catId).map(c => c.id)]);
+      return projectsCache.filter(p => ids.has(p.subcategory_id)).length;
+    }
+
+    function projectsMeta(n) {
+      return n ? n + ' ' + pluralRu(n, 'проект', 'проекта', 'проектов') : 'Пока пусто';
     }
 
     // ---------- Уровень 1: Категории ----------
@@ -769,23 +1000,9 @@
       categoryGridEl.innerHTML = '';
       const topLevel = allCategories.filter(c => !c.parent_id);
       topLevel.forEach(cat => {
-        const colors = getColorForCategoryName(cat.name);
-        const card = document.createElement('div');
-        card.className = 'cat-card';
-
-        const iconArea = document.createElement('div');
-        iconArea.className = 'cat-card-icon-area';
-        iconArea.style.background = colors.light;
-        iconArea.appendChild(yarnCircleEl(colors.main, 64, cat.icon || '🧶', 27));
-        card.appendChild(iconArea);
-
-        const name = document.createElement('div');
-        name.className = 'cat-card-name';
-        name.textContent = cat.name;
-        card.appendChild(name);
-
-        card.addEventListener('click', () => openCategory(cat));
-        categoryGridEl.appendChild(card);
+        const tile = categoryTileEl(cat, projectsMeta(countProjectsIn(cat.id)), false);
+        tile.addEventListener('click', () => openCategory(cat));
+        categoryGridEl.appendChild(tile);
       });
     }
 
@@ -799,43 +1016,30 @@
         return;
       }
 
-      const colors = getColorForCategoryName(cat.name);
-      renderAppHeader(colors.main, (cat.icon || '🧶') + ' ' + cat.name, 'Выбери раздел', () => {
+      renderAppHeader(null, cat.name, 'Выберите раздел', () => {
         document.getElementById('back-to-categories-btn').click();
       });
 
       categoryTitleEl.textContent = cat.name;
       subcategoryGridEl.innerHTML = '';
+      if (!subcats.length) subcategoryGridEl.appendChild(emptyMessage('В этой категории пока нет разделов'));
       subcats.forEach(sc => {
-        const card = document.createElement('div');
-        card.className = 'cat-card';
-
-        const iconArea = document.createElement('div');
-        iconArea.className = 'cat-card-icon-area';
-        iconArea.style.height = '80px';
-        iconArea.style.background = colors.light;
-        iconArea.appendChild(yarnCircleEl(colors.main, 52, sc.icon || cat.icon || '🧶', 22));
-        card.appendChild(iconArea);
-
-        const name = document.createElement('div');
-        name.className = 'cat-card-name';
-        name.style.fontSize = '13px';
-        name.textContent = sc.name;
-        card.appendChild(name);
-
-        card.addEventListener('click', () => openSubcategory(sc));
-        subcategoryGridEl.appendChild(card);
+        const n = projectsCache.filter(p => p.subcategory_id === sc.id).length;
+        const tile = categoryTileEl(sc, projectsMeta(n), false);
+        tile.addEventListener('click', () => openSubcategory(sc));
+        subcategoryGridEl.appendChild(tile);
       });
 
       viewCategories.style.display = 'none';
       viewSubcategories.style.display = 'block';
+      window.scrollTo(0, 0);
     }
 
     document.getElementById('back-to-categories-btn').addEventListener('click', () => {
       currentCategoryId = null;
       viewSubcategories.style.display = 'none';
       viewCategories.style.display = 'block';
-      renderAppHeader('#A8536A', '🧶 Крючок и клубок', null, null);
+      renderAppHeader(null, null, null, null);
     });
 
     // ---------- Уровень 2: Подкатегории → проекты ----------
@@ -848,7 +1052,7 @@
       subcategoryTitleEl.textContent = subcat.name;
       backToSubcatLabelEl.textContent = parentCat ? parentCat.name : 'Категории';
 
-      renderAppHeader(colors.main, (subcat.icon || '🧶') + ' ' + subcat.name, parentCat ? parentCat.name : '', () => {
+      renderAppHeader(null, subcat.name, parentCat ? parentCat.name : '', () => {
         document.getElementById('back-to-subcategories-btn').click();
       });
 
@@ -890,14 +1094,14 @@
       if (parentCat && siblingSubcats.length > 1) {
         viewSubcategories.style.display = 'block';
         const colors = getColorForCategoryName(parentCat.name);
-        renderAppHeader(colors.main, (parentCat.icon || '🧶') + ' ' + parentCat.name, 'Выбери раздел', () => {
+        renderAppHeader(null, parentCat.name, 'Выберите раздел', () => {
           document.getElementById('back-to-categories-btn').click();
         });
       } else {
         // если у категории была всего 1 подкатегория (мы её пропускали) — возвращаемся сразу к категориям
         currentCategoryId = null;
         viewCategories.style.display = 'block';
-        renderAppHeader('#A8536A', '🧶 Крючок и клубок', null, null);
+        renderAppHeader(null, null, null, null);
       }
     });
 
@@ -946,6 +1150,47 @@
     document.getElementById('add-project-category-btn').addEventListener('click', () => {
       projectFormHolderCategory.innerHTML = '';
       projectFormHolderCategory.appendChild(buildProjectForm({ presetCategoryId: currentCategoryId }));
+    });
+
+    // ---------- Нижняя навигация ----------
+    function scrollToEl(el) {
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function openNewProjectForm() {
+      // форма открывается в контексте текущего экрана: с подставленной категорией/подкатегорией
+      if (viewProjects.style.display === 'block') {
+        document.getElementById('add-project-btn').click();
+        scrollToEl(projectFormHolder);
+      } else if (viewSubcategories.style.display === 'block') {
+        document.getElementById('add-project-category-btn').click();
+        scrollToEl(projectFormHolderCategory);
+      } else {
+        document.getElementById('add-project-home-btn').click();
+        scrollToEl(projectFormHolderHome);
+        const nameInput = projectFormHolderHome.querySelector('input');
+        if (nameInput) nameInput.focus({ preventScroll: true });
+      }
+    }
+
+    async function goHome() {
+      currentProjectId = null;
+      currentSubcategoryId = null;
+      currentCategoryId = null;
+      previousViewEl = viewCategories;
+      await returnToPreviousView();
+      window.scrollTo(0, 0);
+    }
+
+    document.getElementById('nav-home').addEventListener('click', () => {
+      searchInput.value = '';
+      goHome();
+    });
+    document.getElementById('nav-add').addEventListener('click', openNewProjectForm);
+    document.getElementById('nav-search').addEventListener('click', async () => {
+      if (viewCategories.style.display !== 'block') await goHome();
+      searchInput.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     function buildProjectForm(opts) {
@@ -1332,8 +1577,74 @@
 
     // ---------- Открытие проекта ----------
     let previousViewEl = null;
+    let sectionCountChip = null;
+
+    // ---------- Панель текущего ряда и общий прогресс проекта ----------
+    const rowBarEl = document.getElementById('row-bar');
+    const rowBarLabelEl = document.getElementById('row-bar-label');
+    const rowBarDescEl = document.getElementById('row-bar-desc');
+    const rowBarBtn = document.getElementById('row-bar-btn');
+    let currentRowRef = null;
+
+    // Проходит по всем деталям сверху вниз и находит первый неотмеченный ряд —
+    // подсвечивает его, обновляет нижнюю панель и полоску прогресса проекта
+    function updateCurrentRow() {
+      let done = 0, total = 0;
+      currentRowRef = null;
+      let currentSectionTitle = '';
+      sectionListEl.querySelectorAll('.row-item.current').forEach(el => el.classList.remove('current'));
+      Array.from(sectionListEl.children).forEach(block => {
+        const refs = (block._rowsWrap && block._rowsWrap._refs) || [];
+        refs.forEach(ref => {
+          total++;
+          if (ref.checkbox.checked) done++;
+          else if (!currentRowRef) { currentRowRef = ref; currentSectionTitle = block._sectionTitle || ''; }
+        });
+      });
+
+      const progressEl = document.getElementById('project-progress');
+      if (total) {
+        progressEl.style.display = '';
+        document.getElementById('project-progress-fill').style.width = Math.round(done / total * 100) + '%';
+        document.getElementById('project-progress-text').textContent = done + ' / ' + total + ' ' + pluralRu(total, 'ряд', 'ряда', 'рядов');
+      } else {
+        progressEl.style.display = 'none';
+      }
+
+      if (!total) { rowBarEl.classList.remove('visible'); return; }
+      rowBarEl.classList.add('visible');
+      if (currentRowRef) {
+        currentRowRef.item.classList.add('current');
+        rowBarLabelEl.textContent = (currentSectionTitle ? currentSectionTitle + ' · ' : '') + 'ряд ' + currentRowRef.rowNumber;
+        rowBarDescEl.textContent = currentRowRef.description;
+        rowBarBtn.style.display = '';
+      } else {
+        rowBarLabelEl.textContent = 'Все ряды связаны';
+        rowBarDescEl.textContent = 'Отличная работа!';
+        rowBarBtn.style.display = 'none';
+      }
+    }
+
+    rowBarBtn.addEventListener('click', () => {
+      if (!currentRowRef) return;
+      const ref = currentRowRef;
+      ref.checkbox.checked = true;
+      ref.checkbox.dispatchEvent(new Event('change'));
+      // если следующий ряд в свёрнутой детали или за краем экрана — показываем его
+      requestAnimationFrame(() => {
+        if (!currentRowRef) return;
+        const body = currentRowRef.item.closest('.part-body');
+        if (body && body.style.display === 'none' && body._expand) body._expand();
+        const r = currentRowRef.item.getBoundingClientRect();
+        if (r.top < 80 || r.bottom > window.innerHeight - 110) {
+          currentRowRef.item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
 
     function hideAllTopViews() {
+      document.body.classList.remove('in-project');
+      document.getElementById('nav-home').classList.remove('active');
       viewCategories.style.display = 'none';
       viewSubcategories.style.display = 'none';
       viewProjects.style.display = 'none';
@@ -1356,7 +1667,7 @@
         if (subcat) {
           const colors = getColorForSubcategory(subcat.id);
           const parentCat = allCategories.find(c => c.id === subcat.parent_id);
-          renderAppHeader(colors.main, (subcat.icon || '🧶') + ' ' + subcat.name, parentCat ? parentCat.name : '', () => {
+          renderAppHeader(null, subcat.name, parentCat ? parentCat.name : '', () => {
             document.getElementById('back-to-subcategories-btn').click();
           });
         }
@@ -1366,13 +1677,14 @@
         const cat = allCategories.find(c => c.id === currentCategoryId);
         if (cat) {
           const colors = getColorForCategoryName(cat.name);
-          renderAppHeader(colors.main, (cat.icon || '🧶') + ' ' + cat.name, 'Выбери раздел', () => {
+          renderAppHeader(null, cat.name, 'Выберите раздел', () => {
             document.getElementById('back-to-categories-btn').click();
           });
         }
       } else {
         viewCategories.style.display = 'block';
-        renderAppHeader('#A8536A', '🧶 Крючок и клубок', null, null);
+        document.getElementById('nav-home').classList.add('active');
+        renderAppHeader(null, null, null, null);
         renderCategoryGrid();
         await renderRecentProjects();
         renderSearchResults(searchInput.value.trim().toLowerCase());
@@ -1388,13 +1700,34 @@
       currentProjectAuthor = cached ? cached.created_by : null;
       document.getElementById('delete-project-btn').style.display = canDelete(currentProjectAuthor) ? '' : 'none';
 
-      const colors = cached ? getColorForSubcategory(cached.subcategory_id) : FALLBACK_COLOR;
-      renderAppHeader(colors.main, name, null, () => {
+      renderAppHeader(null, null, null, () => {
         document.getElementById('back-btn').click();
       });
 
+      // Чипы над заголовком: категория и теги
+      const chipsEl = document.getElementById('project-chips');
+      chipsEl.innerHTML = '';
+      const chipTexts = [];
+      if (cached) {
+        const catName = getCategoryName(cached.subcategory_id);
+        if (catName) chipTexts.push(catName);
+        (cached.project_tags || []).forEach(pt => { if (pt.tags?.name) chipTexts.push(pt.tags.name); });
+      }
+      chipTexts.forEach(t => {
+        const span = document.createElement('span');
+        span.textContent = t;
+        chipsEl.appendChild(span);
+      });
+      sectionCountChip = document.createElement('span');
+      sectionCountChip.style.display = 'none';
+      chipsEl.appendChild(sectionCountChip);
+      document.getElementById('project-progress').style.display = 'none';
+
       hideAllTopViews();
       viewProject.style.display = 'block';
+      document.body.classList.add('in-project');
+      rowBarEl.classList.remove('visible');
+      window.scrollTo(0, 0);
       sectionFormHolder.innerHTML = '';
       await loadProjectPhotos();
       await loadSections();
@@ -1468,6 +1801,13 @@
       }
 
       sectionListEl.innerHTML = '';
+      if (sectionCountChip) {
+        sectionCountChip.textContent = sections.length + ' ' + pluralRu(sections.length, 'деталь', 'детали', 'деталей');
+        sectionCountChip.style.display = sections.length ? '' : 'none';
+      }
+      if (!sections.length) {
+        sectionListEl.appendChild(emptyMessage('Деталей пока нет. Загрузите PDF-схему или добавьте деталь вручную.'));
+      }
       let sectionIndex = 0;
       for (const sec of sections) {
         const isFirstSection = sectionIndex === 0;
@@ -1481,7 +1821,9 @@
         header.className = 'sec-header';
 
         const toggleArea = document.createElement('div');
-        toggleArea.style.cssText = 'display:flex; align-items:center; gap:8px; flex:1; min-width:0; cursor:pointer;';
+        toggleArea.className = 'sec-toggle';
+        toggleArea.setAttribute('role', 'button');
+        toggleArea.tabIndex = 0;
 
         const badge = document.createElement('div');
         badge.className = 'part-badge';
@@ -1496,38 +1838,42 @@
         toggleArea.appendChild(title);
 
         const chevron = document.createElement('span');
-        chevron.textContent = '⌄';
-        chevron.style.cssText = 'font-size:16px; color:var(--text-secondary); transition:transform .2s; flex-shrink:0;';
+        chevron.className = 'sec-chevron';
+        chevron.innerHTML = icon('chevron', 20);
         toggleArea.appendChild(chevron);
 
         header.appendChild(toggleArea);
 
         const moveUpBtn = document.createElement('button');
         moveUpBtn.className = 'icon-btn';
-        moveUpBtn.textContent = '↑';
+        moveUpBtn.innerHTML = icon('up', 18);
         moveUpBtn.title = 'Переставить выше';
+        moveUpBtn.setAttribute('aria-label', moveUpBtn.title);
         if (isFirstSection) moveUpBtn.style.visibility = 'hidden';
         moveUpBtn.addEventListener('click', () => moveSection(sections, myIndex, -1));
         header.appendChild(moveUpBtn);
 
         const moveDownBtn = document.createElement('button');
         moveDownBtn.className = 'icon-btn';
-        moveDownBtn.textContent = '↓';
+        moveDownBtn.innerHTML = icon('down', 18);
         moveDownBtn.title = 'Переставить ниже';
+        moveDownBtn.setAttribute('aria-label', moveDownBtn.title);
         if (myIndex === sections.length - 1) moveDownBtn.style.visibility = 'hidden';
         moveDownBtn.addEventListener('click', () => moveSection(sections, myIndex, 1));
         header.appendChild(moveDownBtn);
 
         const secEditBtn = document.createElement('button');
         secEditBtn.className = 'icon-btn';
-        secEditBtn.textContent = '✎';
+        secEditBtn.innerHTML = icon('edit', 18);
         secEditBtn.title = 'Редактировать деталь';
+        secEditBtn.setAttribute('aria-label', secEditBtn.title);
         header.appendChild(secEditBtn);
 
         const secDelBtn = document.createElement('button');
         secDelBtn.className = 'icon-btn';
-        secDelBtn.textContent = '🗑';
+        secDelBtn.innerHTML = icon('trash', 18);
         secDelBtn.title = 'Удалить деталь';
+        secDelBtn.setAttribute('aria-label', secDelBtn.title);
         if (!canDelete(currentProjectAuthor)) secDelBtn.style.display = 'none';
         header.appendChild(secDelBtn);
 
@@ -1584,16 +1930,19 @@
 
         // ---------- Сворачиваемое тело детали (ряды + форма добавления) ----------
         const partBody = document.createElement('div');
+        partBody.className = 'part-body';
 
         const rowsWrap = document.createElement('div');
         partBody.appendChild(rowsWrap);
+        block._rowsWrap = rowsWrap;
+        block._sectionTitle = sec.title;
 
         const rowFormHolder = document.createElement('div');
         partBody.appendChild(rowFormHolder);
 
         const addRowBtn = document.createElement('button');
-        addRowBtn.className = 'secondary';
-        addRowBtn.textContent = '+ Добавить ряд';
+        addRowBtn.className = 'secondary add-row-btn';
+        addRowBtn.innerHTML = icon('plus', 18, 'currentColor', 2) + 'Добавить ряд';
         addRowBtn.addEventListener('click', () => {
           rowFormHolder.innerHTML = '';
           const form = buildForm(
@@ -1622,10 +1971,14 @@
           partBody.style.display = 'none';
           chevron.style.transform = 'rotate(-90deg)';
         }
+        toggleArea.setAttribute('aria-expanded', savedCollapsed ? 'false' : 'true');
+        partBody._expand = () => { if (partBody.style.display === 'none') toggleArea.click(); };
+        toggleArea.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleArea.click(); } });
         toggleArea.addEventListener('click', async () => {
           const willBeCollapsed = partBody.style.display !== 'none';
           partBody.style.display = willBeCollapsed ? 'none' : '';
           chevron.style.transform = willBeCollapsed ? 'rotate(-90deg)' : '';
+          toggleArea.setAttribute('aria-expanded', willBeCollapsed ? 'false' : 'true');
           try {
             await dbWrite('section_collapse_state', 'upsert', {
               section_id: sec.id,
@@ -1638,6 +1991,7 @@
         sectionListEl.appendChild(block);
         await loadRows(sec.id, rowsWrap, badge);
       }
+      updateCurrentRow();
     }
 
     document.getElementById('add-section-btn').addEventListener('click', () => {
@@ -1692,8 +2046,9 @@
         const total = rowIds.length;
         const complete = total > 0 && doneCount === total;
         badgeEl.textContent = complete ? '✓' : String(total - doneCount);
-        badgeEl.style.background = complete ? 'var(--accent)' : 'var(--accent-light)';
-        badgeEl.style.color = complete ? 'white' : 'var(--accent)';
+        badgeEl.style.background = complete ? 'var(--accent)' : 'var(--done-bg)';
+        badgeEl.style.color = complete ? 'white' : 'var(--text)';
+        badgeEl.setAttribute('aria-label', complete ? 'Деталь связана' : 'Осталось рядов: ' + (total - doneCount));
       }
       updateBadge();
 
@@ -1706,15 +2061,22 @@
 
         const num = document.createElement('div');
         num.className = 'row-num';
-        num.textContent = r.row_number + '.';
+        num.textContent = r.row_number;
 
         const textWrap = document.createElement('div');
-        textWrap.style.flex = '1';
+        textWrap.className = 'row-text';
 
         const desc = document.createElement('div');
         desc.className = 'row-desc';
-        desc.textContent = r.description + (r.total_stitches ? ' (' + r.total_stitches + ')' : '');
+        desc.textContent = r.description;
         textWrap.appendChild(desc);
+
+        if (r.total_stitches) {
+          const sts = document.createElement('div');
+          sts.className = 'row-sts';
+          sts.textContent = r.total_stitches + ' ' + pluralRu(r.total_stitches, 'петля', 'петли', 'петель');
+          textWrap.appendChild(sts);
+        }
 
         if (r.note) {
           const note = document.createElement('div');
@@ -1725,8 +2087,10 @@
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
+        checkbox.className = 'row-check';
         checkbox.checked = isChecked;
-        checkboxRefs.push({ checkbox, item, rowId: r.id });
+        checkbox.setAttribute('aria-label', 'Ряд ' + r.row_number + ' связан');
+        checkboxRefs.push({ checkbox, item, rowId: r.id, rowNumber: r.row_number, description: r.description });
 
         checkbox.addEventListener('change', async () => {
           if (checkbox.checked) {
@@ -1762,6 +2126,7 @@
             }
           }
           updateBadge();
+          updateCurrentRow();
         });
 
         const rowActions = document.createElement('div');
@@ -1769,15 +2134,17 @@
 
         const editBtn = document.createElement('button');
         editBtn.className = 'icon-btn';
-        editBtn.textContent = '✎';
-        editBtn.title = 'Редактировать';
+        editBtn.innerHTML = icon('edit', 17);
+        editBtn.title = 'Редактировать ряд';
+        editBtn.setAttribute('aria-label', 'Редактировать ряд ' + r.row_number);
         editBtn.addEventListener('click', () => startEditRow(r, item, textWrap, sectionId, container));
         rowActions.appendChild(editBtn);
 
         const delBtn = document.createElement('button');
         delBtn.className = 'icon-btn';
-        delBtn.textContent = '🗑';
-        delBtn.title = 'Удалить';
+        delBtn.innerHTML = icon('trash', 17);
+        delBtn.title = 'Удалить ряд';
+        delBtn.setAttribute('aria-label', 'Удалить ряд ' + r.row_number);
         if (!canDelete(currentProjectAuthor)) delBtn.style.display = 'none';
         delBtn.addEventListener('click', () => {
           showConfirmModal({
@@ -1795,10 +2162,14 @@
 
         item.appendChild(num);
         item.appendChild(textWrap);
-        item.appendChild(checkbox);
         item.appendChild(rowActions);
+        item.appendChild(checkbox);
         container.appendChild(item);
       });
+      container._refs = checkboxRefs;
+      // при перерисовке одной детали (добавили/удалили ряд) пересчитываем текущий ряд;
+      // при первой загрузке проекта это сделает loadSections после всех деталей
+      if (container.isConnected) updateCurrentRow();
     }
 
     function startEditRow(r, item, textWrap, sectionId, container) {
@@ -2153,14 +2524,22 @@
 
     // ---------- Старт ----------
     async function init() {
-      renderAppHeader('#A8536A', '🧶 Крючок и клубок', null, null);
-      await loadCategories();
-      await loadTags();
-      await loadPhotoMap();
-      await loadProjects();
-      renderCategoryGrid();
-      await renderRecentProjects();
-      viewCategories.style.display = 'block';
+      renderAppHeader(null, null, null, null);
+      try {
+        await loadCategories();
+        await loadTags();
+        await loadPhotoMap();
+        await loadProjects();
+        viewCategories.style.display = 'block';
+        document.getElementById('nav-home').classList.add('active');
+        renderCategoryGrid();
+        await renderRecentProjects();
+        statusEl.textContent = '';
+      } catch (e) {
+        // раньше при любой ошибке на старте загрузка молча зависала на «Подключаемся к базе...»
+        statusEl.textContent = 'Не удалось подключиться к базе. Проверьте интернет и откройте приложение заново.';
+        showToast('Ошибка загрузки: ' + e.message);
+      }
     }
     init();
   </script>
