@@ -1204,8 +1204,12 @@
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function openNewProjectForm() {
+    async function openNewProjectForm() {
       // форма открывается в контексте текущего экрана: с подставленной категорией/подкатегорией
+      if (viewProfile.style.display === 'block' || viewProject.style.display === 'block') {
+        // из профиля (и любого экрана без своей формы) — сначала на главную, там форма и откроется
+        await goHome();
+      }
       if (viewProjects.style.display === 'block') {
         document.getElementById('add-project-btn').click();
         scrollToEl(projectFormHolder);
