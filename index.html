@@ -26,7 +26,7 @@
   body{
     font-family:var(--font-body);
     background:var(--bg); color:var(--text);
-    padding:0 16px 120px; margin:0;
+    padding:0 16px 132px; margin:0;
     -webkit-tap-highlight-color:transparent;
   }
   body.in-project{ padding-bottom:132px; }
@@ -129,6 +129,11 @@
     cursor:pointer; text-align:left; transition:transform .1s ease;
   }
   .cat-tile:active{ transform:scale(0.98); }
+  /* при наведении/нажатии плитка становится тёмной, а текст и иконка — светлыми (раньше общий
+     стиль кнопок красил фон в ягодный, а текст оставался тёмным и серым — плохо читалось) */
+  .cat-tile:hover, .cat-tile:focus-visible, .cat-tile:active{ background:var(--ink); color:#fff; }
+  .cat-tile:hover .cat-tile-meta, .cat-tile:focus-visible .cat-tile-meta, .cat-tile:active .cat-tile-meta{ color:var(--on-dark-muted); }
+  .recent-card:hover{ background:var(--card) !important; box-shadow:0 6px 18px rgba(31,26,36,0.10); }
   .cat-tile.dark{ background:var(--ink); color:#fff; }
   .cat-tile.dark .cat-tile-meta{ color:var(--on-dark-muted); }
   .cat-tile-emoji{ font-size:30px; line-height:1; }
@@ -149,7 +154,8 @@
   /* ---------- Нижняя навигация ---------- */
   .bottom-nav{
     position:fixed; left:16px; right:16px; bottom:max(16px, env(safe-area-inset-bottom)); z-index:20;
-    height:68px; border-radius:26px; background:var(--card); box-shadow:0 10px 30px rgba(31,26,36,0.12);
+    height:68px; border-radius:26px; background:var(--card); border:1px solid var(--border);
+    box-shadow:0 2px 6px rgba(31,26,36,0.06), 0 14px 34px rgba(31,26,36,0.16);
     display:flex; align-items:center; justify-content:space-around; padding:0 8px; max-width:520px; margin:0 auto;
   }
   body.in-project .bottom-nav{ display:none; }
@@ -304,7 +310,27 @@
     background:var(--ink); color:#fff; padding:14px 16px; border-radius:var(--radius-m);
     font-size:14px; display:none; z-index:200; box-shadow:0 10px 30px rgba(31,26,36,0.25);
   }
-  #view-project, #view-categories, #view-subcategories, #view-projects{ display:none; }
+  #view-project, #view-categories, #view-subcategories, #view-projects, #view-profile{ display:none; }
+
+  /* ---------- Профиль ---------- */
+  .profile-head{ display:flex; align-items:center; gap:14px; margin:4px 0 20px; }
+  .profile-avatar{
+    width:64px; height:64px; border-radius:50%; flex-shrink:0; overflow:hidden;
+    background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-weight:600; font-size:24px;
+  }
+  .profile-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .profile-name{ font-size:24px; line-height:1.15; overflow-wrap:anywhere; }
+  .profile-sub{ font-size:14px; color:var(--text-secondary); margin-top:4px; }
+  .stats-hero{
+    background:var(--ink); color:#fff; border-radius:var(--radius-l); padding:22px 20px;
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .stats-hero b{ font-family:var(--font-display); font-weight:600; font-size:40px; letter-spacing:-0.03em; line-height:1; }
+  .stats-hero span{ font-size:14px; color:var(--on-dark-muted); }
+  .stat-tile{ background:var(--card); border-radius:24px; padding:16px; display:flex; flex-direction:column; gap:6px; min-height:104px; justify-content:space-between; }
+  .stat-tile b{ font-family:var(--font-display); font-weight:600; font-size:26px; letter-spacing:-0.02em; }
+  .stat-tile span{ font-size:13px; color:var(--text-secondary); line-height:1.3; }
   .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 </style>
 </head>
@@ -376,10 +402,24 @@
     <div id="section-list"></div>
   </div>
 
+  <div id="view-profile">
+    <div class="profile-head">
+      <div class="profile-avatar" id="profile-avatar" aria-hidden="true"></div>
+      <div style="min-width:0;">
+        <h1 class="profile-name" id="profile-name">Профиль</h1>
+        <div class="profile-sub" id="profile-sub"></div>
+      </div>
+    </div>
+    <div class="stats-hero" id="stats-hero"></div>
+    <div class="card-grid" id="stats-grid"></div>
+    <h2 class="section-title" id="profile-done-title" style="display:none;">Готовые работы</h2>
+    <div class="card-grid" id="profile-done-list"></div>
+  </div>
+
   <nav class="bottom-nav" aria-label="Основная навигация">
     <button class="nav-item active" id="nav-home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10 12 4l8 6v10H4V10Z"/></svg>Главная</button>
     <button class="nav-plus" id="nav-add" aria-label="Новый проект"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-    <button class="nav-item" id="nav-search"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Поиск</button>
+    <button class="nav-item" id="nav-profile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Профиль</button>
   </nav>
 
   <div class="row-bar" id="row-bar" role="region" aria-label="Текущий ряд">
@@ -439,6 +479,7 @@
     const viewSubcategories = document.getElementById('view-subcategories');
     const viewProjects = document.getElementById('view-projects');
     const viewProject = document.getElementById('view-project');
+    const viewProfile = document.getElementById('view-profile');
     const categoryGridEl = document.getElementById('category-grid');
     const subcategoryGridEl = document.getElementById('subcategory-grid');
     const categoryTitleEl = document.getElementById('category-title');
@@ -744,11 +785,17 @@
       if (!rowIds.length) return new Set();
       const { data, error } = await sb
         .from('row_progress')
-        .select('row_id')
+        .select('row_id, updated_at')
         .eq('telegram_user_id', currentUserId)
         .in('row_id', rowIds);
       if (error) { showToast('Ошибка загрузки прогресса: ' + error.message); return new Set(); }
-      return new Set((data || []).map(x => x.row_id));
+      const set = new Set((data || []).map(x => x.row_id));
+      // когда последний раз отмечали ряд в этой детали — по этому выбираем, какую деталь вы сейчас вяжете
+      set._lastTouched = (data || []).reduce((max, x) => {
+        const t = x.updated_at ? new Date(x.updated_at).getTime() : 0;
+        return t > max ? t : max;
+      }, 0);
+      return set;
     }
 
     // ---------- Загрузка всех проектов (кэш для поиска и списков по подкатегориям) ----------
@@ -980,7 +1027,7 @@
       tile.className = 'cat-tile' + (dark ? ' dark' : '');
       tile.style.margin = '0';
       tile.innerHTML = `
-        ${categoryIconHtml(cat, 34, dark ? '#fff' : '#1F1A24')}
+        ${categoryIconHtml(cat, 34, 'currentColor')}
         <span><span class="cat-tile-name" style="display:block;">${escapeHtml(cat.name)}</span>
         <span class="cat-tile-meta" style="display:block;">${escapeHtml(metaText)}</span></span>`;
       return tile;
@@ -1173,7 +1220,13 @@
       }
     }
 
+    function closeOpenForms() {
+      [projectFormHolderHome, projectFormHolderCategory, projectFormHolder,
+       document.getElementById('project-edit-form-holder'), sectionFormHolder].forEach(h => { if (h) h.innerHTML = ''; });
+    }
+
     async function goHome() {
+      closeOpenForms();
       currentProjectId = null;
       currentSubcategoryId = null;
       currentCategoryId = null;
@@ -1187,11 +1240,101 @@
       goHome();
     });
     document.getElementById('nav-add').addEventListener('click', openNewProjectForm);
-    document.getElementById('nav-search').addEventListener('click', async () => {
-      if (viewCategories.style.display !== 'block') await goHome();
-      searchInput.focus();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    document.getElementById('nav-profile').addEventListener('click', openProfile);
+
+    // ---------- Профиль со статистикой ----------
+    async function openProfile() {
+      closeOpenForms();
+      hideAllTopViews();
+      viewProfile.style.display = 'block';
+      document.getElementById('nav-profile').classList.add('active');
+      renderAppHeader(null, null, null, null);
+      window.scrollTo(0, 0);
+
+      const tgUser = (Telegram.WebApp.initDataUnsafe || {}).user || {};
+      const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'Моё вязание';
+      document.getElementById('profile-name').textContent = fullName;
+      const avatarEl = document.getElementById('profile-avatar');
+      avatarEl.innerHTML = '';
+      if (tgUser.photo_url) {
+        const img = document.createElement('img');
+        img.src = tgUser.photo_url; img.alt = '';
+        avatarEl.appendChild(img);
+      } else {
+        avatarEl.textContent = fullName.trim().charAt(0).toUpperCase();
+      }
+
+      const heroEl = document.getElementById('stats-hero');
+      const gridEl = document.getElementById('stats-grid');
+      const doneTitleEl = document.getElementById('profile-done-title');
+      const doneListEl = document.getElementById('profile-done-list');
+      heroEl.innerHTML = '<span>Считаем...</span>';
+      gridEl.innerHTML = '';
+      doneListEl.innerHTML = '';
+      doneTitleEl.style.display = 'none';
+
+      try {
+        // все отметки этого пользователя
+        const { data: progress, error: pErr } = await sb.from('row_progress')
+          .select('row_id').eq('telegram_user_id', currentUserId);
+        if (pErr) throw pErr;
+        const checked = new Set((progress || []).map(x => x.row_id));
+
+        const { data: sections, error: sErr } = await sb.from('sections').select('id, project_id');
+        if (sErr) throw sErr;
+        const { data: rows, error: rErr } = await sb.from('rows').select('id, section_id, total_stitches');
+        if (rErr) throw rErr;
+
+        const secToProject = {};
+        (sections || []).forEach(sc => { secToProject[sc.id] = sc.project_id; });
+        const perSection = {}, perProject = {};
+        let stitches = 0, rowsDone = 0;
+        (rows || []).forEach(r => {
+          const ps = perSection[r.section_id] || (perSection[r.section_id] = { done: 0, total: 0 });
+          const pid = secToProject[r.section_id];
+          const pp = perProject[pid] || (perProject[pid] = { done: 0, total: 0 });
+          ps.total++; pp.total++;
+          if (checked.has(r.id)) {
+            ps.done++; pp.done++; rowsDone++;
+            stitches += r.total_stitches || 0;
+          }
+        });
+        const partsDone = Object.values(perSection).filter(x => x.total && x.done === x.total).length;
+        const projIds = Object.keys(perProject).filter(id => projectsCache.some(p => p.id === id));
+        const finished = projIds.filter(id => perProject[id].total && perProject[id].done === perProject[id].total);
+        const inWork = projIds.filter(id => perProject[id].done > 0 && perProject[id].done < perProject[id].total);
+        const mine = projectsCache.filter(p => p.created_by === currentUserId).length;
+
+        document.getElementById('profile-sub').textContent =
+          inWork.length ? 'Сейчас в работе: ' + inWork.length + ' ' + pluralRu(inWork.length, 'проект', 'проекта', 'проектов') : 'Пока ничего не в работе';
+
+        heroEl.innerHTML = `<b>${stitches.toLocaleString('ru-RU')}</b><span>${pluralRu(stitches, 'петля связана', 'петли связано', 'петель связано')} по отмеченным рядам</span>`;
+
+        const tiles = [
+          [rowsDone, pluralRu(rowsDone, 'ряд связан', 'ряда связано', 'рядов связано')],
+          [partsDone, pluralRu(partsDone, 'деталь готова', 'детали готовы', 'деталей готово')],
+          [finished.length, pluralRu(finished.length, 'проект завершён', 'проекта завершено', 'проектов завершено')],
+          [mine, pluralRu(mine, 'проект создан мной', 'проекта создано мной', 'проектов создано мной')]
+        ];
+        tiles.forEach(([n, label]) => {
+          const t = document.createElement('div');
+          t.className = 'stat-tile';
+          t.innerHTML = `<b>${n}</b><span>${escapeHtml(label)}</span>`;
+          gridEl.appendChild(t);
+        });
+
+        if (finished.length) {
+          doneTitleEl.style.display = '';
+          finished.forEach(id => {
+            const p = projectsCache.find(x => x.id === id);
+            if (p) doneListEl.appendChild(createProjectItemEl(p));
+          });
+        }
+      } catch (e) {
+        heroEl.innerHTML = '<span>Не удалось посчитать статистику</span>';
+        showToast('Ошибка: ' + (e.message || e));
+      }
+    }
 
     function buildProjectForm(opts) {
       opts = opts || {};
@@ -1593,14 +1736,21 @@
       currentRowRef = null;
       let currentSectionTitle = '';
       sectionListEl.querySelectorAll('.row-item.current').forEach(el => el.classList.remove('current'));
-      Array.from(sectionListEl.children).forEach(block => {
-        const refs = (block._rowsWrap && block._rowsWrap._refs) || [];
-        refs.forEach(ref => {
-          total++;
-          if (ref.checkbox.checked) done++;
-          else if (!currentRowRef) { currentRowRef = ref; currentSectionTitle = block._sectionTitle || ''; }
-        });
+      const blocks = Array.from(sectionListEl.children).filter(b => b._rowsWrap);
+      blocks.forEach(block => {
+        (block._rowsWrap._refs || []).forEach(ref => { total++; if (ref.checkbox.checked) done++; });
       });
+
+      // Деталь, с которой вы работали последней (отмечали ряд или раскрыли её).
+      // Детали можно вязать не по порядку — поэтому ищем текущий ряд начиная с неё,
+      // а если она готова, идём к следующим и по кругу к пропущенным выше.
+      let startIdx = 0, bestTime = 0;
+      blocks.forEach((b, i) => { const t = b._rowsWrap._lastTouched || 0; if (t > bestTime) { bestTime = t; startIdx = i; } });
+      for (let k = 0; k < blocks.length && !currentRowRef; k++) {
+        const block = blocks[(startIdx + k) % blocks.length];
+        const ref = (block._rowsWrap._refs || []).find(r => !r.checkbox.checked);
+        if (ref) { currentRowRef = ref; currentSectionTitle = block._sectionTitle || ''; }
+      }
 
       const progressEl = document.getElementById('project-progress');
       if (total) {
@@ -1634,7 +1784,7 @@
       requestAnimationFrame(() => {
         if (!currentRowRef) return;
         const body = currentRowRef.item.closest('.part-body');
-        if (body && body.style.display === 'none' && body._expand) body._expand();
+        if (body && body.style.display === 'none' && body._expand) { body._autoExpand = true; body._expand(); body._autoExpand = false; }
         const r = currentRowRef.item.getBoundingClientRect();
         if (r.top < 80 || r.bottom > window.innerHeight - 110) {
           currentRowRef.item.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1649,15 +1799,19 @@
       viewSubcategories.style.display = 'none';
       viewProjects.style.display = 'none';
       viewProject.style.display = 'none';
+      viewProfile.style.display = 'none';
+      document.getElementById('nav-profile').classList.remove('active');
     }
 
     function currentVisibleTopView() {
+      if (viewProfile.style.display === 'block') return viewProfile;
       if (viewProjects.style.display === 'block') return viewProjects;
       if (viewSubcategories.style.display === 'block') return viewSubcategories;
       return viewCategories;
     }
 
     async function returnToPreviousView() {
+      if (previousViewEl === viewProfile) { await openProfile(); return; }
       hideAllTopViews();
       await loadProjects();
       await loadPhotoMap();
@@ -1979,6 +2133,11 @@
           partBody.style.display = willBeCollapsed ? 'none' : '';
           chevron.style.transform = willBeCollapsed ? 'rotate(-90deg)' : '';
           toggleArea.setAttribute('aria-expanded', willBeCollapsed ? 'false' : 'true');
+          if (!willBeCollapsed && !partBody._autoExpand) {
+            // раскрыли деталь вручную — значит, переходите к ней; панель внизу переключается на неё
+            rowsWrap._lastTouched = Date.now();
+            updateCurrentRow();
+          }
           try {
             await dbWrite('section_collapse_state', 'upsert', {
               section_id: sec.id,
@@ -2039,6 +2198,7 @@
 
       const rowIds = rows.map(r => r.id);
       const checkedSet = await loadRowProgress(rowIds);
+      if (!container._lastTouched) container._lastTouched = checkedSet._lastTouched || 0;
 
       function updateBadge() {
         if (!badgeEl) return;
@@ -2126,6 +2286,7 @@
             }
           }
           updateBadge();
+          container._lastTouched = Date.now(); // эту деталь сейчас и вяжут
           updateCurrentRow();
         });
 
